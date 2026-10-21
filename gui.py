@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (
     QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QScrollArea,
-    QPushButton, QLabel, QComboBox, QSlider, QLineEdit, QListWidgetItem
+    QPushButton, QLabel, QComboBox, QSlider, QLineEdit, QListWidgetItem, QListWidget
 )
 from gui_styles.styles import (SCROLL_BAR_STYLE)
 
@@ -10,13 +10,20 @@ import string
 class VideoWindowUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.model_det = self.add_model_widget("modele detekcji obiektow")
+        self.model_det = self.widget_model_list()
+        self.model_pred = self.widget_model_list()
+        self.model_track = self.widget_model_list()
+
+
+        self.video_source_text = QLineEdit()
+
 
         self.setWindowTitle("project")
         self.resize(1500, 700)
         self._build_ui()
         self.resize_to_screen_ratio(6/7, 6/7)
 
+        
 
     def resize_to_screen_ratio(self, width_ratio: float = 6/7, height_ratio: float = 6/7):
         screen = QApplication.primaryScreen()
@@ -70,16 +77,12 @@ class VideoWindowUI(QMainWindow):
         models_scroll_area.setWidget(models_content_widget)
         main_models_layout.addWidget(models_scroll_area)
 
-        models_content_layout.addWidget(self.model_det)
-
-        model_track = self.add_model_widget("modele śledzenia obiektow")
-        models_content_layout.addWidget(model_track)
-
-        model_pred = self.add_model_widget("modele predykcji ruchu obiektow")
-        models_content_layout.addWidget(model_pred)
-
-        
-
+        det_widget = self.add_models_widget("modele detekcji obiektow", self.model_det)
+        pred_widget = self.add_models_widget("modele predykcji ruchu obiektow", self.model_pred)
+        track_widget = self.add_models_widget("modele śledzenia obiektow",self.model_track)
+        models_content_layout.addWidget(det_widget)
+        models_content_layout.addWidget(pred_widget)
+        models_content_layout.addWidget(track_widget)
 
 
         # Pasek narzędzi video
@@ -88,7 +91,6 @@ class VideoWindowUI(QMainWindow):
         main_video_workspace_widget.setLayout(main_video_workspace_layout)
         video_toolbar = QHBoxLayout()
 
-        self.video_source_text = QLineEdit()
         self.video_source_text.setPlaceholderText('podaj źródło obrazu')
         self.video_source_text.setStyleSheet("background:white; color:black;")
         main_video_workspace_layout.addWidget(self.video_source_text)
@@ -126,8 +128,7 @@ class VideoWindowUI(QMainWindow):
         window_geometry.moveCenter(screen_center)
         self.move(window_geometry.topLeft())
 
-    # todo: dodanie elementow w postaci wag modeli do listy sscrollowanej
-    def add_model_widget(self, text: string):
+    def add_models_widget(self, text: string, widget_model_list: QListWidgetItem):
         model_widget = QWidget()
         model_widget.setMinimumSize(250,200)
         model_widget.setStyleSheet('background-color: #37393b; border-radius: 10px')
@@ -140,21 +141,9 @@ class VideoWindowUI(QMainWindow):
 
         model_text = QLabel(text)
         model_text.setStyleSheet('color: black; font-size: 12pt;')
-        
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet(SCROLL_BAR_STYLE)
-
-        content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setAlignment(Qt.AlignLeft)
-
-        for i in range(20):
-           content_layout.addWidget(QPushButton(f"Element {i}"))
-
-        scroll_area.setWidget(content_widget)
         model_layout.addWidget(model_text)
-        model_layout.addWidget(scroll_area)
+
+        model_layout.addWidget(widget_model_list)
 
         det_thr = QLabel("Próg detekcji:")
         det_thr.setStyleSheet('color: white')
@@ -167,10 +156,30 @@ class VideoWindowUI(QMainWindow):
 
         return model_widget
 
-    def populate_file_list(self, file_paths: list[str]):
+    def widget_model_list(self):
+        models_list = QListWidget()
+        content_layout = QVBoxLayout(models_list)
+        content_layout.setAlignment(Qt.AlignLeft)
+        #models_list.setWidgetResizable(True)
+        models_list.setStyleSheet(SCROLL_BAR_STYLE)
+        return models_list
+
+    def populate_det_models_list(self, file_paths: list[str]):
         for path in file_paths:
             item = QListWidgetItem(path)
             self.model_det.addItem(item)
+            print(f'załadowano {item}')
+
+    def populate_pred_models_list(self, file_paths: list[str]):
+        for path in file_paths:
+            item = QListWidgetItem(path)
+            self.model_pred.addItem(item)
+            print(f'załadowano {item}')
+
+    def populate_track_models_list(self, file_paths: list[str]):
+        for path in file_paths:
+            item = QListWidgetItem(path)
+            self.model_track.addItem(item)
             print(f'załadowano {item}')
 
 

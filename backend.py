@@ -27,9 +27,9 @@ class Models():
     def __init__(self):
         self.det_models = []
         self.track_models = []
-        self.load_models()
+        self.load_det_models()
 
-    def load_models(self):
+    def load_det_models(self):
         models = os.listdir(models_dir)
         for model in models:
             if model.endswith('.pt'):

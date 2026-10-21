@@ -12,5 +12,5 @@ class AppController:
         # self._view.model_det.addWidget()
 
         models = self._models.det_models
-        print(f'det models z controlera: {models}')
+        self._view.populate_det_models_list(models)
 
