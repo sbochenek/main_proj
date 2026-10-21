@@ -14,9 +14,8 @@ class VideoWindowUI(QMainWindow):
         self.model_pred = self.widget_model_list()
         self.model_track = self.widget_model_list()
 
-
         self.video_source_text = QLineEdit()
-
+        self.video_label = QLabel("Podaj źródło video...")
 
         self.setWindowTitle("project")
         self.resize(1500, 700)
@@ -109,7 +108,6 @@ class VideoWindowUI(QMainWindow):
         video_toolbar.addWidget(self.btn_backward)
 
         # Ekran wideo
-        self.video_label = QLabel("Podaj źródło video...")
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_label.setStyleSheet("background:black; color:white;")
         self.video_label.setMinimumSize(800, 500)
