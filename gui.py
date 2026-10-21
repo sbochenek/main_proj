@@ -93,6 +93,7 @@ class VideoWindowUI(QMainWindow):
 
         self.video_source_text.setPlaceholderText('podaj źródło obrazu')
         self.video_source_text.setStyleSheet("background:white; color:black;")
+        self.video_source_text.returnPressed.connect(self.get_source_vid)
         main_video_workspace_layout.addWidget(self.video_source_text)
 
         self.btn_open = QPushButton("Play")
@@ -182,6 +183,14 @@ class VideoWindowUI(QMainWindow):
             self.model_track.addItem(item)
             print(f'załadowano {item}')
 
+
+    ## metody dla strony z video
+    def get_source_vid(self):
+        text = self.video_source_text.text()
+        return text
+
+    def next_frame():
+        pass
 
 if __name__ == '__main__':
     import sys

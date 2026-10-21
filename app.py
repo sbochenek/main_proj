@@ -3,7 +3,7 @@ import sys
 from PyQt5.QtWidgets import QApplication
 
 from gui import VideoWindowUI
-import backend
+from backend import BackendManager
 from controller import AppController
 
 def main():
@@ -11,9 +11,9 @@ def main():
 
     # 1. Inicjalizacja warstw
     view = VideoWindowUI()
-    models = backend.Models()
+    backend = BackendManager()
 
-    controller = AppController(view, models)
+    controller = AppController(view, backend)
 
     view.show()
     
