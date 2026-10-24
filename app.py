@@ -1,6 +1,8 @@
+# ./app.py
 import sys
 
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import QTimer
 
 from gui import VideoWindowUI
 from backend import BackendManager
@@ -16,6 +18,7 @@ def main():
     controller = AppController(view, backend)
 
     view.show()
+    QTimer.singleShot(50, controller.on_gui_loaded)
     
     sys.exit(app.exec_())
 

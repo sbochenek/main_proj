@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 # Twój aktualny adres strumienia z ważnym tokenem
-stream_url = "https://s1.worldcam.live:8082/aleksandrow-lodzki-dmowskiego-konstantynowska/index.m3u8?token=2d2636dd4c39f34b95827a73c1df661595baffecc483dc479d69fd50c537547b"
+stream_url = "https://s1.worldcam.live:8082/aleksandrow-lodzki-dmowskiego-konstantynowska/index.m3u8?token=5261493ac6c54266a65a5b7de6b12acc8b155353f23e2beeab14185bbd0bbbce"
 # Pobierz parametry wideo (szerokość, wysokość) za pomocą ffprobe lub ustaw na sztywno, np. 1920x1080 lub 1280x720
 # Dla Full HD (zgodnie z linkiem 1080):
 width, height = 1920, 1080
@@ -26,7 +26,7 @@ ffmpeg_cmd = [
 pipe = subprocess.Popen(
     ffmpeg_cmd,
     stdout=subprocess.PIPE,
-    stderr=subprocess.DEVNULL,  # ukrywa logi FFmpeg, zmień na None jeśli chcesz debugować
+    stderr=subprocess.DEVNULL,
     bufsize=10**8,
 )
 

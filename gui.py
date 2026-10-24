@@ -1,11 +1,19 @@
+# ./gui.py
 from PyQt5.QtWidgets import (
     QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QScrollArea,
-    QPushButton, QLabel, QComboBox, QSlider, QLineEdit, QListWidgetItem, QListWidget
+    QPushButton, QLabel, QComboBox, QSlider, QLineEdit, QListWidgetItem, QListWidget,
 )
+from PyQt5.QtGui import QImage, QPixmap # do backendu
+
+from PyQt5.QtCore import pyqtSignal, QEvent
 from gui_styles.styles import (SCROLL_BAR_STYLE)
 
 from PyQt5.QtCore import Qt
 import string
+
+
+import cv2  # do backendu
+
 
 class VideoWindowUI(QMainWindow):
     def __init__(self):
@@ -15,7 +23,7 @@ class VideoWindowUI(QMainWindow):
         self.model_track = self.widget_model_list()
 
         self.video_source_text = QLineEdit()
-        self.video_label = QLabel("Podaj źródło video...")
+        self.video_label = VideoLabel("Podaj źródło video...")
 
         self.setWindowTitle("project")
         self.resize(1500, 700)
@@ -187,8 +195,51 @@ class VideoWindowUI(QMainWindow):
         text = self.video_source_text.text()
         return text
 
-    def next_frame():
-        pass
+    # ustawienie rozmiarow video przy wlaczeniu aplikacji
+    def get_video_size(self):
+        return self.video_label.width(), self.video_label.height()
+
+    def update_video_frame(self, frame):
+        """
+        frame: klatka z OpenCV (numpy.ndarray)
+        """
+        if frame is None:
+            return
+
+        # 1. OpenCV używa formatu BGR, a Qt wymaga RGB. Zamieniamy kolory:
+        rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # 2. Pobieramy wymiary klatki
+        h, w, ch = rgb_image.shape
+        bytes_per_line = ch * w
+
+        # 3. Tworzymy QImage z danych numpy
+        q_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+
+        # 4. Konwertujemy QImage na QPixmap i ustawiamy na QLabel
+        pixmap = QPixmap.fromImage(q_image)
+        
+        # Opcjonalnie: skalowanie pixmapy, aby dopasować ją do rozmiaru QLabel (zachowując proporcje)
+        self.video_label.setPixmap(pixmap.scaled(
+            self.video_label.width(), 
+            self.video_label.height(), 
+            Qt.KeepAspectRatio, 
+            Qt.SmoothTransformation
+        ))
+
+class VideoLabel(QLabel):
+    size_changed = pyqtSignal(int, int)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # Pobieramy aktualny rozmiar labela po zmianie
+        width = self.width()
+        height = self.height()
+        
+        # Wysyłamy sygnał z nowymi wymiarami
+        self.size_changed.emit(width, height)
+        print(f"video label size w: {width}, h: {height}")
+
 
 if __name__ == '__main__':
     import sys
