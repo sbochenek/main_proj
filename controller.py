@@ -17,7 +17,7 @@ class AppController:
         self._view.video_source_text.returnPressed.connect(self.handle_video_source_change)
 
         # Podłączenie sygnału z backendu (Publisher) do metody w widoku (Subscriber)
-        self._video.frame_ready.connect(self._view.update_video_frame)
+        self._video.frame_ready.connect(self._view.display_frame)
 
 
     def on_gui_loaded(self):
@@ -33,7 +33,13 @@ class AppController:
         print(f"Kontroler przesłał do backendu: {source_text}")
 
         self._video.change_video_source(source_text)
-
+        self.handle_start_video()
+    
 
     def handle_video_screen_reseize(self, width, heigh):
         self._video.resize_video_to_dimensions(width, heigh)
+
+
+
+    def handle_start_video(self):
+        self._video.start()

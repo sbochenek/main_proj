@@ -44,118 +44,40 @@ class Video(QThread):
         self.cap = None
         self._is_running = True
 
-        self.ffmpeg_cmd = None
-        self.pipe = None
 
         self.frame_size = self.width * self.height * 3
 
-    def change_video_source(self, source):
-        print(f"backend otrzymał video source: {source}")
-        self.source = source
-        self.play_next_frame()
-
-    def resize_video_to_dimensions(self, width, height):
-        print(f'ustawiono rozmiar kaltki w backend na W:{self.width} H:{self.height}')
+    def resize_video_to_dimensions(self, width: int, height: int) -> None:
+        """zmiana rozmiarow klatki na odpowiadajace rozmiarowi ekranu video"""
         self.width = width
         self.height = height
 
-    def run(self):
-        try:
-            while True:
-                # Pobieramy dokładną liczbę bajtów odpowiadającą jednej klatce
-                raw_frame = self.pipe.stdout.read(self.frame_size)
+    def change_video_source(self, source):
+        """zmiana zrodla video z wylaczeniem poprzedniego streamu"""
+        if self.cap and self.cap.isOpened():
+            self.cap.release()
 
-                if not raw_frame:
-                    print("Koniec strumienia lub brak danych.")
+        self.cap = cv2.VideoCapture(source)
+        
+        if not self.cap.isOpened():
+            print("Błąd: Nie udało się otworzyć strumienia M3U8!")
+
+    def run(self):
+        # Pętla odczytująca klatki w wątku
+        self._is_running = True
+        while self._is_running:
+            if self.cap and self.cap.isOpened():
+                ret, frame = self.cap.read()
+                if ret:
+                    self.frame_ready.emit(frame)
+                else:
+                    print("Utracono klatkę / koniec strumienia.")
                     break
 
-                # Konwersja surowych bajtów na tablicę NumPy
-                frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape(
-                    (self.height, self.width, 3)
-                )
+    def stop(self):
+        self._is_running = False
+        self.wait()
 
-                self.frame_ready.emit(frame)
-
-        finally:
-            self.pipe.terminate()
-            cv2.destroyAllWindows()
-        
-
-    def change_video_source(self, source):
-        self.source = source
-
-        self.ffmpeg_cmd =  [
-                            "ffmpeg",
-                            "-i",
-                            self.source,
-                            "-f",
-                            "image2pipe",
-                            "-pix_fmt",
-                            "bgr24",
-                            "-vcodec",
-                            "rawvideo",
-                            "-",
-                            ]
-        self.pipe = subprocess.Popen(
-            self.ffmpeg_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            bufsize=10**8,
-        )
-
-        self.run()
-            
-    #     if not self.cap.isOpened():
-    #         print(f"Błąd: Nie udało się otworzyć strumienia: {source}")
-
-    # def play_next_frame(self):
-    #     if self.cap and self.cap.isOpened():
-    #         ret, frame = self.cap.read()
-    #         if ret:
-    #             self.frame_ready.emit(frame)
-    #         else:
-    #             print("Koniec strumienia lub utracono połączenie.")
-
-    # def play_next_framee(self):
-        # ffmpeg_cmd = [
-        # "ffmpeg",
-        # "-i",
-        # self.source,
-        # "-f",
-        # "image2pipe",
-        # "-pix_fmt",
-        # "bgr24",
-        # "-vcodec",
-        # "rawvideo",
-        # "-",
-        # ]
-
-        # pipe = subprocess.Popen(
-        # ffmpeg_cmd,
-        # stdout=subprocess.PIPE,
-        # stderr=None,  # ukrywa logi FFmpeg, zmień na None jeśli chcesz debugować
-        # bufsize=10**8,
-        # )
-
-        # frame_size = self.width * self.height * 3
-
-        # try:
-        #     while True:
-        #         # Pobieramy dokładną liczbę bajtów odpowiadającą jednej klatce
-        #         raw_frame = pipe.stdout.read(frame_size)
-
-        #         if not raw_frame:
-        #             print("Koniec strumienia lub brak danych.")
-        #             break
-
-        #         # Konwersja surowych bajtów na tablicę NumPy
-        #         frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape(
-        #             (self.height, self.width, 3)
-        #         )
-        #         self.frame_ready.emit(frame)
-        # finally:
-        #     pipe.terminate()
-        #     cv2.destroyAllWindows()
 
 class Models():
     def __init__(self):
@@ -184,11 +106,6 @@ def main():
                             name='res',
                             )
 
-
-def main_models():
-    model = Models()
-    model.load_models()
-    print(model.models)
 
 def test_video():
 

@@ -61,35 +61,8 @@ class VideoWindowUI(QMainWindow):
         workspace_layout = QHBoxLayout()
         main_layout.addLayout(workspace_layout)
 
-        # label na samej gorze zeby uklad sprawdzic
-        self.tmp_label = QLabel('losowy tekst')
+        models_panel = self.build_models_panel()
 
-
-
-        # Pasek narzędzi dla modeli
-        main_models_widget = QWidget()
-        main_models_layout = QVBoxLayout()
-        main_models_widget.setLayout(main_models_layout)
-        main_models_widget.setMaximumWidth(350)
-
-        models_content_widget = QWidget()
-        models_content_layout = QVBoxLayout(models_content_widget)
-        models_content_layout.setSpacing(20)
-        models_content_layout.setContentsMargins(10,20,10,20)
-        models_content_layout.setAlignment(Qt.AlignTop)
-
-        models_scroll_area = QScrollArea()
-        models_scroll_area.setWidgetResizable(True)
-        models_scroll_area.setStyleSheet(SCROLL_BAR_STYLE)
-        models_scroll_area.setWidget(models_content_widget)
-        main_models_layout.addWidget(models_scroll_area)
-
-        det_widget = self.add_models_widget("modele detekcji obiektow", self.model_det)
-        pred_widget = self.add_models_widget("modele predykcji ruchu obiektow", self.model_pred)
-        track_widget = self.add_models_widget("modele śledzenia obiektow",self.model_track)
-        models_content_layout.addWidget(det_widget)
-        models_content_layout.addWidget(pred_widget)
-        models_content_layout.addWidget(track_widget)
 
 
         # Pasek narzędzi video
@@ -124,9 +97,35 @@ class VideoWindowUI(QMainWindow):
         main_video_workspace_layout.addLayout(video_toolbar)
 
         # main_layout.addWidget(self.tmp_label)
-        workspace_layout.addWidget(main_models_widget)
+        workspace_layout.addWidget(models_panel)
         workspace_layout.addWidget(main_video_workspace_widget)
-                
+
+    def build_models_panel(self) -> QWidget:
+        main_models_widget = QWidget()
+        main_models_widget.setMaximumWidth(350)
+        main_models_layout = QVBoxLayout(main_models_widget)
+    
+        models_content_widget = QWidget()
+        models_content_layout = QVBoxLayout(models_content_widget)
+        models_content_layout.setSpacing(20)
+        models_content_layout.setContentsMargins(10,20,10,20)
+        models_content_layout.setAlignment(Qt.AlignTop)
+
+        models_scroll_area = QScrollArea()
+        models_scroll_area.setWidgetResizable(True)
+        models_scroll_area.setStyleSheet(SCROLL_BAR_STYLE)
+        models_scroll_area.setWidget(models_content_widget)
+
+        det_widget = self._create_model_card("modele detekcji obiektow", self.model_det)
+        pred_widget = self._create_model_card("modele predykcji ruchu obiektow", self.model_pred)
+        track_widget = self._create_model_card("modele śledzenia obiektow",self.model_track)
+        models_content_layout.addWidget(det_widget)
+        models_content_layout.addWidget(pred_widget)
+        models_content_layout.addWidget(track_widget)
+        
+        main_models_layout.addWidget(models_scroll_area)
+
+        return main_models_widget
 
     def resize_main_window(self, width, height):
         self.resize(width, height)
@@ -135,7 +134,7 @@ class VideoWindowUI(QMainWindow):
         window_geometry.moveCenter(screen_center)
         self.move(window_geometry.topLeft())
 
-    def add_models_widget(self, text: string, widget_model_list: QListWidgetItem):
+    def _create_model_card(self, text: string, widget_model_list: QListWidgetItem):
         model_widget = QWidget()
         model_widget.setMinimumSize(250,200)
         model_widget.setStyleSheet('background-color: #37393b; border-radius: 10px')
@@ -191,7 +190,8 @@ class VideoWindowUI(QMainWindow):
 
 
     ## metody dla strony z video
-    def get_source_vid(self):
+    def get_source_vid(self) -> str:
+        """"""
         text = self.video_source_text.text()
         return text
 
@@ -199,27 +199,16 @@ class VideoWindowUI(QMainWindow):
     def get_video_size(self):
         return self.video_label.width(), self.video_label.height()
 
-    def update_video_frame(self, frame):
-        """
-        frame: klatka z OpenCV (numpy.ndarray)
-        """
+    def display_frame(self, frame):
         if frame is None:
             return
 
-        # 1. OpenCV używa formatu BGR, a Qt wymaga RGB. Zamieniamy kolory:
         rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # 2. Pobieramy wymiary klatki
         h, w, ch = rgb_image.shape
         bytes_per_line = ch * w
-
-        # 3. Tworzymy QImage z danych numpy
         q_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-
-        # 4. Konwertujemy QImage na QPixmap i ustawiamy na QLabel
         pixmap = QPixmap.fromImage(q_image)
         
-        # Opcjonalnie: skalowanie pixmapy, aby dopasować ją do rozmiaru QLabel (zachowując proporcje)
         self.video_label.setPixmap(pixmap.scaled(
             self.video_label.width(), 
             self.video_label.height(), 
@@ -232,11 +221,9 @@ class VideoLabel(QLabel):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        # Pobieramy aktualny rozmiar labela po zmianie
         width = self.width()
         height = self.height()
         
-        # Wysyłamy sygnał z nowymi wymiarami
         self.size_changed.emit(width, height)
         print(f"video label size w: {width}, h: {height}")
 
