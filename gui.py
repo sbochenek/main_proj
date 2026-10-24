@@ -3,15 +3,12 @@ from PyQt5.QtWidgets import (
     QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QScrollArea,
     QPushButton, QLabel, QComboBox, QSlider, QLineEdit, QListWidgetItem, QListWidget,
 )
-from PyQt5.QtGui import QImage, QPixmap # do backendu
 
-from PyQt5.QtCore import pyqtSignal, QEvent
+from PyQt5.QtCore import pyqtSignal, QEvent, Qt
 from gui_styles.styles import (SCROLL_BAR_STYLE)
 
-from PyQt5.QtCore import Qt
-import string
 
-
+from PyQt5.QtGui import QImage, QPixmap # do backendu
 import cv2  # do backendu
 
 
@@ -30,26 +27,6 @@ class VideoWindowUI(QMainWindow):
         self._build_ui()
         self.resize_to_screen_ratio(6/7, 6/7)
 
-        
-
-    def resize_to_screen_ratio(self, width_ratio: float = 6/7, height_ratio: float = 6/7):
-        screen = QApplication.primaryScreen()
-        
-        if screen:
-            screen_size = screen.geometry()
-            target_width = int(screen_size.width() * width_ratio)
-            target_height = int(screen_size.height() * height_ratio)
-            
-            # Ustawiamy rozmiar okna
-            self.resize(target_width, target_height)
-
-            self.center_on_screen(screen_size, target_width, target_height)
-
-    def center_on_screen(self, screen_size, width, height):
-        x = (screen_size.width() - width) // 2
-        y = (screen_size.height() - height) // 2
-        self.move(x, y)
-
     # lewa strona opcje do modeli
     # prawa strona narzedzia do obrazu i samo video
     def _build_ui(self):
@@ -63,7 +40,7 @@ class VideoWindowUI(QMainWindow):
 
         models_panel = self.build_models_panel()
         video_panel = self.build_video_panel()
-        
+
         workspace_layout.addWidget(models_panel)
         workspace_layout.addWidget(video_panel)
 
@@ -134,7 +111,7 @@ class VideoWindowUI(QMainWindow):
         window_geometry.moveCenter(screen_center)
         self.move(window_geometry.topLeft())
 
-    def _create_model_card(self, text: string, widget_model_list: QListWidgetItem):
+    def _create_model_card(self, text: str, widget_model_list: QListWidgetItem):
         model_widget = QWidget()
         model_widget.setMinimumSize(250,200)
         model_widget.setStyleSheet('background-color: #37393b; border-radius: 10px')
@@ -162,7 +139,7 @@ class VideoWindowUI(QMainWindow):
 
         return model_widget
 
-    def widget_model_list(self):
+    def widget_model_list(self) -> QListWidget:
         models_list = QListWidget()
         content_layout = QVBoxLayout(models_list)
         content_layout.setAlignment(Qt.AlignLeft)
@@ -215,6 +192,24 @@ class VideoWindowUI(QMainWindow):
             Qt.KeepAspectRatio, 
             Qt.SmoothTransformation
         ))
+
+    def resize_to_screen_ratio(self, width_ratio: float = 6/7, height_ratio: float = 6/7):
+        screen = QApplication.primaryScreen()
+        
+        if screen:
+            screen_size = screen.geometry()
+            target_width = int(screen_size.width() * width_ratio)
+            target_height = int(screen_size.height() * height_ratio)
+            
+            # Ustawiamy rozmiar okna
+            self.resize(target_width, target_height)
+
+            self.center_on_screen(screen_size, target_width, target_height)
+
+    def center_on_screen(self, screen_size, width, height):
+        x = (screen_size.width() - width) // 2
+        y = (screen_size.height() - height) // 2
+        self.move(x, y)
 
 class VideoLabel(QLabel):
     size_changed = pyqtSignal(int, int)

@@ -7,32 +7,6 @@ import cv2
 import numpy as np
 
 
-root = os.getcwd()
-models_dir = os.path.join(root, "models")
-
-
-class BackendManager:
-
-  def __init__(self):
-    self.video = Video()
-    self.models = Models()
-
-class BackendModel(QObject):
-    # Sygnał wysyłany do GUI, gdy dane się zmienią
-    data_changed = pyqtSignal(str)
-
-    def __init__(self):
-        super().__init__()
-        self._counter = 0
-
-    def process_data(self, text_input: str):
-        # Symulacja przeliczania logiki biznesowej
-        self._counter += 1
-        result = f"Przetworzono: '{text_input.upper()}' (Kliknięto {self._counter} razy)"
-        
-        # Przekazanie wyniku w świat za pomocą sygnału
-        self.data_changed.emit(result)
-
 class Video(QThread):
     frame_ready = pyqtSignal(np.ndarray)
 
@@ -78,18 +52,6 @@ class Video(QThread):
         self._is_running = False
         self.wait()
 
-
-class Models():
-    def __init__(self):
-        self.det_models = []
-        self.track_models = []
-        self.load_det_models()
-
-    def load_det_models(self):
-        models = os.listdir(models_dir)
-        for model in models:
-            if model.endswith('.pt'):
-                self.det_models.append(model)
 
 
 def main():

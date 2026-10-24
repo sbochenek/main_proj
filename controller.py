@@ -1,12 +1,13 @@
 # ./controller.py
 from gui import VideoWindowUI
-from backend import BackendManager
+from video import Video
+from models import Models
 
 class AppController:
-    def __init__(self, view, backend_manager):
+    def __init__(self, view, video, models):
         self._view = view
-        self._models = backend_manager.models
-        self._video = backend_manager.video
+        self._models = models
+        self._video = video
 
         models = self._models.det_models
         self._view.populate_det_models_list(models)

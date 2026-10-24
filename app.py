@@ -5,7 +5,8 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QTimer
 
 from gui import VideoWindowUI
-from backend import BackendManager
+from video import Video
+from models import Models
 from controller import AppController
 
 def main():
@@ -13,9 +14,10 @@ def main():
 
     # 1. Inicjalizacja warstw
     view = VideoWindowUI()
-    backend = BackendManager()
+    video = Video()
+    models = Models()
 
-    controller = AppController(view, backend)
+    controller = AppController(view, video, models)
 
     view.show()
     QTimer.singleShot(50, controller.on_gui_loaded)
