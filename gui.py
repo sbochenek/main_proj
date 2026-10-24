@@ -62,10 +62,39 @@ class VideoWindowUI(QMainWindow):
         main_layout.addLayout(workspace_layout)
 
         models_panel = self.build_models_panel()
+        video_panel = self.build_video_panel()
+        
+        workspace_layout.addWidget(models_panel)
+        workspace_layout.addWidget(video_panel)
 
+    def build_models_panel(self) -> QWidget:
+        main_models_widget = QWidget()
+        main_models_widget.setMaximumWidth(350)
+        main_models_layout = QVBoxLayout(main_models_widget)
+    
+        models_content_widget = QWidget()
+        models_content_layout = QVBoxLayout(models_content_widget)
+        models_content_layout.setSpacing(20)
+        models_content_layout.setContentsMargins(10,20,10,20)
+        models_content_layout.setAlignment(Qt.AlignTop)
 
+        models_scroll_area = QScrollArea()
+        models_scroll_area.setWidgetResizable(True)
+        models_scroll_area.setStyleSheet(SCROLL_BAR_STYLE)
+        models_scroll_area.setWidget(models_content_widget)
 
-        # Pasek narzędzi video
+        det_widget = self._create_model_card("modele detekcji obiektow", self.model_det)
+        pred_widget = self._create_model_card("modele predykcji ruchu obiektow", self.model_pred)
+        track_widget = self._create_model_card("modele śledzenia obiektow",self.model_track)
+        models_content_layout.addWidget(det_widget)
+        models_content_layout.addWidget(pred_widget)
+        models_content_layout.addWidget(track_widget)
+        
+        main_models_layout.addWidget(models_scroll_area)
+
+        return main_models_widget
+
+    def build_video_panel(self) -> QWidget:
         main_video_workspace_widget = QWidget()
         main_video_workspace_layout = QVBoxLayout()
         main_video_workspace_widget.setLayout(main_video_workspace_layout)
@@ -95,37 +124,8 @@ class VideoWindowUI(QMainWindow):
 
         main_video_workspace_layout.addWidget(self.video_label)
         main_video_workspace_layout.addLayout(video_toolbar)
-
-        # main_layout.addWidget(self.tmp_label)
-        workspace_layout.addWidget(models_panel)
-        workspace_layout.addWidget(main_video_workspace_widget)
-
-    def build_models_panel(self) -> QWidget:
-        main_models_widget = QWidget()
-        main_models_widget.setMaximumWidth(350)
-        main_models_layout = QVBoxLayout(main_models_widget)
-    
-        models_content_widget = QWidget()
-        models_content_layout = QVBoxLayout(models_content_widget)
-        models_content_layout.setSpacing(20)
-        models_content_layout.setContentsMargins(10,20,10,20)
-        models_content_layout.setAlignment(Qt.AlignTop)
-
-        models_scroll_area = QScrollArea()
-        models_scroll_area.setWidgetResizable(True)
-        models_scroll_area.setStyleSheet(SCROLL_BAR_STYLE)
-        models_scroll_area.setWidget(models_content_widget)
-
-        det_widget = self._create_model_card("modele detekcji obiektow", self.model_det)
-        pred_widget = self._create_model_card("modele predykcji ruchu obiektow", self.model_pred)
-        track_widget = self._create_model_card("modele śledzenia obiektow",self.model_track)
-        models_content_layout.addWidget(det_widget)
-        models_content_layout.addWidget(pred_widget)
-        models_content_layout.addWidget(track_widget)
         
-        main_models_layout.addWidget(models_scroll_area)
-
-        return main_models_widget
+        return main_video_workspace_widget
 
     def resize_main_window(self, width, height):
         self.resize(width, height)
