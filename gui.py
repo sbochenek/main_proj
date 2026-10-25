@@ -15,10 +15,9 @@ import cv2  # do backendu
 class VideoWindowUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.model_det = self.widget_model_list()# out
         self.model_det_park_spot = self.widget_model_list()
-        self.model_pred = self.widget_model_list()# out
-        self.model_track = self.widget_model_list()# out
+        self.model_det_cars = self.widget_model_list()
+
 
         self.video_source_text = QLineEdit()
         self.video_label = VideoLabel("Podaj źródło video...")
@@ -61,14 +60,11 @@ class VideoWindowUI(QMainWindow):
         models_scroll_area.setStyleSheet(SCROLL_BAR_STYLE)
         models_scroll_area.setWidget(models_content_widget)
 
-        widget_det_park_spot = self._create_model_card("modele detekcji miejsc parkingowych", self.model_det_park_spot)#
-        det_widget = self._create_model_card("modele detekcji obiektow", self.model_det)
-        pred_widget = self._create_model_card("modele predykcji ruchu obiektow", self.model_pred)
-        track_widget = self._create_model_card("modele śledzenia obiektow",self.model_track)
-        models_content_layout.addWidget(widget_det_park_spot)#
-        models_content_layout.addWidget(det_widget)
-        models_content_layout.addWidget(pred_widget)
-        models_content_layout.addWidget(track_widget)
+        widget_det_park_spot = self._create_model_card("modele detekcji miejsc parkingowych", self.model_det_park_spot)
+        widget_det_cars = self._create_model_card("modele detekcji pojazdów", self.model_det_cars)
+        models_content_layout.addWidget(widget_det_park_spot)
+        models_content_layout.addWidget(widget_det_cars)
+
         
         main_models_layout.addWidget(models_scroll_area)
 
@@ -149,11 +145,6 @@ class VideoWindowUI(QMainWindow):
 
 
 
-    def populate_det_models_list(self, file_paths: list[str]):
-        for path in file_paths:
-            item = QListWidgetItem(path)
-            self.model_det.addItem(item)
-            print(f'załadowano {item}')
 
     def populate_models_det_park_spot(self, file_paths: list[str]):
         for path in file_paths:
@@ -161,17 +152,13 @@ class VideoWindowUI(QMainWindow):
             self.model_det_park_spot.addItem(item)
             print(f'załadowano {item}')
 
-    def populate_pred_models_list(self, file_paths: list[str]):
+    def populate_models_det_cars(self, file_paths: list[str]):
         for path in file_paths:
             item = QListWidgetItem(path)
-            self.model_pred.addItem(item)
+            self.model_det_cars.addItem(item)
             print(f'załadowano {item}')
 
-    def populate_track_models_list(self, file_paths: list[str]):
-        for path in file_paths:
-            item = QListWidgetItem(path)
-            self.model_track.addItem(item)
-            print(f'załadowano {item}')
+
 
 
 
