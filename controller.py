@@ -9,9 +9,12 @@ class AppController:
         self._models = models
         self._video = video
 
-        models = self._models.det_models
-        self._view.populate_det_models_list(models)
+        det_models = self._models.det_models
 
+        # ladowanie modeli do gui
+        self._view.populate_det_models_list(det_models)
+        self._view.populate_models_det_cars_spot(self._models.models_det_cars_spot)
+        
         # polaczenie eventu zmiany screenu z zmiana video w backendzie
         self._view.video_label.size_changed.connect(self.handle_video_screen_reseize)
         # polaczene eventu zmiany zrodla video przez klawisz enter
