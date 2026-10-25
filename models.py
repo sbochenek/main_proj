@@ -5,7 +5,8 @@ from enum import Enum
 import cv2
 
 from ultralytics import YOLO
-
+import supervision as sv
+from trackers import ByteTrackTracker
 
 root = os.getcwd()
 models_det_dir_park_slot = os.path.join(root, "models\\park_det_models")
@@ -29,14 +30,22 @@ class Models():
         }
         self.models_det_park_spot = []
         self.loaded_model_det_park_spot = None
+        self.model_det_park_spot_conf = 0.25
 
         self.models_det_cars = []
         self.loaded_model_det_cars = None
+        self.model_det_park_cars_conf = 0.25
 
-
-        self.det_models = []
-        self.track_models = []
-
+        self.is_tracking_enabled = True
+        self.tracker = ByteTrackTracker(
+            track_activation_threshold=0.25,
+            minimum_consecutive_frames=1
+            )
+            
+           
+        self.box_annotator = sv.BoxAnnotator()
+        self.label_annotator = sv.LabelAnnotator()
+        self.trace_annotator = sv.TraceAnnotator()
         # wczytywanie modeli
         self.load_models_from_dir(models_det_dir_park_slot, self.models_det_park_spot)
         self.load_models_from_dir(models_det_dir_car, self.models_det_cars)
@@ -78,12 +87,14 @@ class Models():
         if self.loaded_model_det_cars is not None:
             frame = self.detect_cars(frame)
 
+        # if self.loaded_model_det_cars is not None and self.loaded_model_track_cars is not None:
+        #     frame = self.track_cars(frame)
+
         return frame
 
 
     def check_parking_slots(self, frame):
-        conf = 70 / 100.0
-        results = self.loaded_model_det_park_spot(frame, conf=conf, verbose=False)[0]
+        results = self.loaded_model_det_park_spot(frame, conf=self.model_det_park_spot_conf, verbose=False)[0]
 
         # Rysowanie bounding boxów
         for box in results.boxes:
@@ -101,28 +112,72 @@ class Models():
 
 
     def detect_cars(self, frame):
-        conf = 70 / 100.0
-
         if self.loaded_model_det_cars == 'yolo26m.pt':
             results = self.model(
             frame, 
-            conf=conf, 
-            classes=vehicle_classes,  # <-- Filtruje wykrycia tylko do pojazdów
-            verbose=False
-        )[0]
+            conf=self.model_det_park_cars_conf, 
+            classes=vehicle_classes,  # <-- wykrycia tylko do pojazdów
+            verbose=False)[0]
         else: 
-            results = self.loaded_model_det_cars(frame, conf=conf, verbose=False)[0]
+            results = self.loaded_model_det_cars(frame, conf=0.25, verbose=False)[0]
 
-        # Rysowanie bounding boxów
-        for box in results.boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            cls = int(box.cls[0])
-            label = self.loaded_model_det_cars.names[cls]
-            conf_val = float(box.conf[0])
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(
-                frame, f"{label} {conf_val:.2f}",
-                (x1, y1 - 5),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2
+
+        if self.is_tracking_enabled:
+            frame = self.track_cars(frame, results)
+            return frame
+        else:
+            for box in results.boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                cls = int(box.cls[0])
+                label = self.loaded_model_det_cars.names[cls]
+                conf_val = float(box.conf[0])
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(
+                    frame, f"{label} {conf_val:.2f}",
+                    (x1, y1 - 5),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2
+                )
+            return frame
+
+    def track_cars(self, frame, result):
+        detections = sv.Detections.from_ultralytics(result)
+
+        # 3. Przypisanie identyfikatorów przez ByteTrack
+        detections = self.tracker.update(detections)
+
+        # 4. Pominięcie obiektów bez przypisanego ID
+        detections = detections[detections.tracker_id != -1]
+
+        # 5. Przygotowanie etykiet: ID + nazwa klasy
+        labels = [
+            f"ID {tracker_id} {result.names[class_id]}"
+            for tracker_id, class_id in zip(
+                detections.tracker_id,
+                detections.class_id
             )
-        return frame
+        ]
+
+        # 6. Rysowanie wyników
+        annotated_frame = self.box_annotator.annotate(
+            scene=frame.copy(),
+            detections=detections
+        )
+
+        annotated_frame = self.label_annotator.annotate(
+            scene=annotated_frame,
+            detections=detections,
+            labels=labels
+        )
+
+        annotated_frame = self.trace_annotator.annotate(
+            scene=annotated_frame,
+            detections=detections
+        )
+        return annotated_frame
+
+
+
+
+class Tracking_algorithms():
+    def __init__(self):
+        self.bytetrack

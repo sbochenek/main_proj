@@ -9,8 +9,6 @@ class AppController:
         self._models = models
         self._video = video
 
-        det_models = self._models.det_models
-
         # ladowanie modeli do gui
         self._view.populate_models_det_park_spot(self._models.models_det_park_spot)
         self._view.populate_models_det_cars(self._models.models_det_cars)
