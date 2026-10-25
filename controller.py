@@ -44,6 +44,5 @@ class AppController:
         self._video.resize_video_to_dimensions(width, heigh)
 
 
-
     def handle_start_video(self):
         self._video.start()
