@@ -14,8 +14,8 @@ def main():
 
     # 1. Inicjalizacja warstw
     view = VideoWindowUI()
-    video = Video()
     models = Models()
+    video = Video(models)
 
     controller = AppController(view, video, models)
 

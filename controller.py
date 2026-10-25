@@ -26,11 +26,10 @@ class AppController:
         )
 
         # Podłączenie sygnału z backendu (Publisher) do metody w widoku (Subscriber)
-        self._video.frame_ready.connect(self.handle_frame_processing)
-
-    def handle_frame_processing(self, frame):
-        processed_frame = self._models.process_frame(frame)
-        self._view.display_frame(processed_frame)
+        self._video.frame_ready.connect(self._view.display_frame)
+        self._video.error_occurred.connect(
+            lambda message: print(f"Błąd wideo: {message}")
+        )
 
 
     def on_gui_loaded(self):
@@ -39,22 +38,17 @@ class AppController:
     
     def handle_video_source_change(self):
         source_text = self._view.get_source_vid()
+
         if not source_text.strip():
             print("Ścieżka wideo jest pusta!")
             return
 
-        print(f"Kontroler przesłał do backendu: {source_text}")
-
-        self._video.change_video_source(source_text)
-        self.handle_start_video()
+        if self._video.change_video_source(source_text):
+            self._video.start()
     
 
     def handle_video_screen_reseize(self, width, heigh):
         self._video.resize_video_to_dimensions(width, heigh)
-
-
-    def handle_start_video(self):
-        self._video.start()
 
 
     ## funkcje dla modeli

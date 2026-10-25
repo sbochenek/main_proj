@@ -9,9 +9,11 @@ import numpy as np
 
 class Video(QThread):
     frame_ready = pyqtSignal(np.ndarray)
-
-    def __init__(self):
+    error_occurred = pyqtSignal(str)
+    
+    def __init__(self, models):
         super().__init__()
+        self.models = models
         self.width = 1280
         self.height = 900
         self.source = None
@@ -28,29 +30,60 @@ class Video(QThread):
 
     def change_video_source(self, source):
         """zmiana zrodla video z wylaczeniem poprzedniego streamu"""
-        if self.cap and self.cap.isOpened():
-            self.cap.release()
 
+        if self.isRunning():
+            self.stop()
+        
+        if self.cap is not None:
+            self.cap.release()
+            self.cap = None
+
+        self.source = source
         self.cap = cv2.VideoCapture(source)
         
         if not self.cap.isOpened():
-            print("Błąd: Nie udało się otworzyć strumienia M3U8!")
+            self.cap.release()
+            self.cap = None
+            self.error_occurred.emit(
+                f"Nie można otworzyć źródła wideo: {source}"
+            )
+            return False
 
+        return True
+    
     def run(self):
-        # Pętla odczytująca klatki w wątku
+        if self.cap is None or not self.cap.isOpened():
+            self.error_occurred.emit("Brak otwartego źródła wideo")
+            return
+
         self._is_running = True
-        while self._is_running:
-            if self.cap and self.cap.isOpened():
+
+        try:
+            while self._is_running:
                 ret, frame = self.cap.read()
-                if ret:
-                    self.frame_ready.emit(frame)
-                else:
-                    print("Utracono klatkę / koniec strumienia.")
+
+                if not ret:
                     break
+
+                # Inferencja odbywa się w wątku Video,
+                processed_frame = self.models.process_frame(frame)
+
+                self.frame_ready.emit(processed_frame)
+
+        except Exception as exc:
+            self.error_occurred.emit(str(exc))
+
+        finally:
+            self._is_running = False
 
     def stop(self):
         self._is_running = False
-        self.wait()
+        if self.isRunning():
+            self.wait()
+
+        if self.cap is not None:
+            self.cap.release()
+            self.cap = None
 
 
 
