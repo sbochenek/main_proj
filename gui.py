@@ -15,10 +15,10 @@ import cv2  # do backendu
 class VideoWindowUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.model_det = self.widget_model_list()
+        self.model_det = self.widget_model_list()# out
         self.model_det_park_spot = self.widget_model_list()
-        self.model_pred = self.widget_model_list()
-        self.model_track = self.widget_model_list()
+        self.model_pred = self.widget_model_list()# out
+        self.model_track = self.widget_model_list()# out
 
         self.video_source_text = QLineEdit()
         self.video_label = VideoLabel("Podaj źródło video...")
@@ -61,11 +61,11 @@ class VideoWindowUI(QMainWindow):
         models_scroll_area.setStyleSheet(SCROLL_BAR_STYLE)
         models_scroll_area.setWidget(models_content_widget)
 
-        widget_det_cars_spot = self._create_model_card("modele detekcji miejsc parkingowych", self.model_det_park_spot)#
+        widget_det_park_spot = self._create_model_card("modele detekcji miejsc parkingowych", self.model_det_park_spot)#
         det_widget = self._create_model_card("modele detekcji obiektow", self.model_det)
         pred_widget = self._create_model_card("modele predykcji ruchu obiektow", self.model_pred)
         track_widget = self._create_model_card("modele śledzenia obiektow",self.model_track)
-        models_content_layout.addWidget(widget_det_cars_spot)#
+        models_content_layout.addWidget(widget_det_park_spot)#
         models_content_layout.addWidget(det_widget)
         models_content_layout.addWidget(pred_widget)
         models_content_layout.addWidget(track_widget)
@@ -107,14 +107,8 @@ class VideoWindowUI(QMainWindow):
         
         return main_video_workspace_widget
 
-    def resize_main_window(self, width, height):
-        self.resize(width, height)
-        window_geometry = self.frameGeometry()
-        screen_center = QApplication.primaryScreen().availableGeometry().center()
-        window_geometry.moveCenter(screen_center)
-        self.move(window_geometry.topLeft())
-
     def _create_model_card(self, text: str, widget_model_list: QListWidgetItem):
+        """funkcja przygotowujaca widget w ktorym beda umieszczone modele"""
         model_widget = QWidget()
         model_widget.setMinimumSize(250,200)
         model_widget.setStyleSheet('background-color: #37393b; border-radius: 10px')
@@ -148,7 +142,12 @@ class VideoWindowUI(QMainWindow):
         content_layout.setAlignment(Qt.AlignLeft)
         #models_list.setWidgetResizable(True)
         models_list.setStyleSheet(SCROLL_BAR_STYLE)
+
         return models_list
+
+
+
+
 
     def populate_det_models_list(self, file_paths: list[str]):
         for path in file_paths:
@@ -156,7 +155,7 @@ class VideoWindowUI(QMainWindow):
             self.model_det.addItem(item)
             print(f'załadowano {item}')
 
-    def populate_models_det_cars_spot(self, file_paths: list[str]):
+    def populate_models_det_park_spot(self, file_paths: list[str]):
         for path in file_paths:
             item = QListWidgetItem(path)
             self.model_det_park_spot.addItem(item)
@@ -175,9 +174,9 @@ class VideoWindowUI(QMainWindow):
             print(f'załadowano {item}')
 
 
+
     ## metody dla strony z video
     def get_source_vid(self) -> str:
-        """"""
         text = self.video_source_text.text()
         return text
 
@@ -202,6 +201,17 @@ class VideoWindowUI(QMainWindow):
             Qt.SmoothTransformation
         ))
 
+
+
+    ## metody do zmiany rozmiarow aplikacji
+    def resize_main_window(self, width, height):
+        self.resize(width, height)
+        window_geometry = self.frameGeometry()
+        screen_center = QApplication.primaryScreen().availableGeometry().center()
+        window_geometry.moveCenter(screen_center)
+        self.move(window_geometry.topLeft())
+
+    # zmiana rozmiarow calej aplikacje zeby zajmowala wiekszosc ekranu
     def resize_to_screen_ratio(self, width_ratio: float = 6/7, height_ratio: float = 6/7):
         screen = QApplication.primaryScreen()
         

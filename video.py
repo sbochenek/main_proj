@@ -1,4 +1,4 @@
-# ./backend.py
+# ./video.py
 from PyQt5.QtCore import QObject, pyqtSignal, QThread
 from ultralytics import YOLO
 import os
