@@ -2,11 +2,29 @@
 import os
 from enum import Enum
 
+import onnxruntime as ort
+print("ONNX Runtime:", ort.__version__)
+
 import cv2
+print("OpenCV OK")
 
 from ultralytics import YOLO
+print("Ultralytics OK")
+
 import supervision as sv
-from trackers import ByteTrackTracker, BoTSORTTracker, OCSORTTracker, SORTTracker
+print("Supervision OK")
+
+from trackers import (
+    ByteTrackTracker,
+    BoTSORTTracker,
+    OCSORTTracker,
+    SORTTracker,
+)
+print("Trackers OK")
+
+from inference import get_model
+print("Inference OK")
+print("[MODELS] Początek inicjalizacji", flush=True)
 
 root = os.getcwd()
 models_det_dir_park_slot = os.path.join(root, "models\\park_det_models")
@@ -26,6 +44,7 @@ class TrackerAlg(Enum):
     BoTSORTTracker = "BoTSORTTracker"
     ByteTrack = "ByteTrack"
 
+print("[MODELS] Importy zakończone, definiuję klasę Models", flush=True)
 class Models():
     def __init__(self):
         self.active_models = {
