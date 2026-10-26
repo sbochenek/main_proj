@@ -119,7 +119,7 @@ class VideoWindowUI(QMainWindow):
         model_layout.setAlignment(Qt.AlignTop)
 
         model_text = QLabel(text)
-        model_text.setStyleSheet('color: black; font-size: 12pt;')
+        model_text.setStyleSheet('color: white; font-size: 12pt;')
         model_layout.addWidget(model_text)
 
         model_layout.addWidget(widget_model_list)
