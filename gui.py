@@ -1,15 +1,15 @@
 # ./gui.py
 from PyQt5.QtWidgets import (
     QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QScrollArea,
-    QPushButton, QLabel, QComboBox, QSlider, QLineEdit, QListWidgetItem, QListWidget,
+    QPushButton, QLabel, QToolTip, QSlider, QLineEdit, QListWidgetItem, QListWidget,
 )
 
-from PyQt5.QtCore import pyqtSignal, QEvent, Qt
-from gui_styles.styles import (SCROLL_BAR_STYLE)
+from PyQt5.QtCore import pyqtSignal, QEvent, Qt, QPoint
+from gui_styles.styles import (SCROLL_BAR_STYLE, SLIDER_STYLE)
 
 
-from PyQt5.QtGui import QImage, QPixmap # do backendu
-import cv2  # do backendu
+from PyQt5.QtGui import QImage, QPixmap, QCursor
+import cv2
 
 
 class VideoWindowUI(QMainWindow):
@@ -60,12 +60,15 @@ class VideoWindowUI(QMainWindow):
         models_scroll_area.setStyleSheet(SCROLL_BAR_STYLE)
         models_scroll_area.setWidget(models_content_widget)
 
-        widget_det_park_spot = self._create_model_card("modele detekcji miejsc parkingowych", self.model_det_park_spot)
-        widget_det_cars = self._create_model_card("modele detekcji pojazdów", self.model_det_cars)
+        widget_det_park_spot, self.slider_det_park_spot = self._create_model_card("modele detekcji miejsc parkingowych", self.model_det_park_spot)
+        widget_det_cars, self.slider_det_cars = self._create_model_card("modele detekcji pojazdów", self.model_det_cars)
         models_content_layout.addWidget(widget_det_park_spot)
         models_content_layout.addWidget(widget_det_cars)
 
-        
+        track_widget, self.track_alg_list = self._create_track_alg_card("algorytmy śledzenia obiektow")
+        models_content_layout.addWidget(track_widget)
+
+
         main_models_layout.addWidget(models_scroll_area)
 
         return main_models_widget
@@ -103,7 +106,7 @@ class VideoWindowUI(QMainWindow):
         
         return main_video_workspace_widget
 
-    def _create_model_card(self, text: str, widget_model_list: QListWidgetItem):
+    def _create_model_card(self, text: str, widget_model_list: QListWidget):
         """funkcja przygotowujaca widget w ktorym beda umieszczone modele"""
         model_widget = QWidget()
         model_widget.setMinimumSize(250,200)
@@ -121,16 +124,25 @@ class VideoWindowUI(QMainWindow):
 
         model_layout.addWidget(widget_model_list)
 
+        layout_thr = QHBoxLayout()
         det_thr = QLabel("Próg detekcji:")
         det_thr.setStyleSheet('color: white')
-        model_layout.addWidget(det_thr)
+        val_label = QLabel("40")  # Startowa wartość
+        val_label.setStyleSheet('color: white; font-weight: bold; font-size: 16')
 
-        self.conf_slider = QSlider(Qt.Horizontal)
-        self.conf_slider.setRange(10, 90)
-        self.conf_slider.setValue(40)
-        model_layout.addWidget(self.conf_slider)
+        layout_thr.addWidget(det_thr)
+        layout_thr.addStretch()
+        layout_thr.addWidget(val_label)
+        model_layout.addLayout(layout_thr)
 
-        return model_widget
+        conf_slider = QSlider(Qt.Horizontal)
+        conf_slider.setRange(0, 100)
+        conf_slider.setValue(40)
+        conf_slider.setStyleSheet(SLIDER_STYLE)        
+        model_layout.addWidget(conf_slider)
+
+        conf_slider.valueChanged.connect(lambda val: val_label.setText(str(val))) # zmiana napisu w gui
+        return model_widget, conf_slider
 
     def widget_model_list(self) -> QListWidget:
         models_list = QListWidget()
@@ -140,8 +152,48 @@ class VideoWindowUI(QMainWindow):
         models_list.setStyleSheet(SCROLL_BAR_STYLE)
 
         return models_list
+    
+    def _create_track_alg_card(self, text):
+        track_widget = QWidget()
+        track_widget.setMinimumSize(250,200)
+        track_widget.setStyleSheet('background-color: #37393b; border-radius: 10px')
 
+        track_layout = QVBoxLayout()
+        track_widget.setLayout(track_layout)
 
+        track_layout.addSpacing(10)
+        track_layout.setAlignment(Qt.AlignTop)
+
+        model_text = QLabel(text)
+        model_text.setStyleSheet('color: black; font-size: 12pt;')
+        track_layout.addWidget(model_text)
+
+        track_alg_list = QListWidget()
+        content_layout = QVBoxLayout(track_alg_list)
+        content_layout.setAlignment(Qt.AlignLeft)
+        #models_list.setWidgetResizable(True)
+        track_alg_list.setStyleSheet(SCROLL_BAR_STYLE)
+        track_layout.addWidget(track_alg_list)
+
+        layout_thr = QHBoxLayout()
+        # det_thr = QLabel("Próg detekcji:")
+        # det_thr.setStyleSheet('color: white')
+        # val_label = QLabel("40")  # Startowa wartość
+        # val_label.setStyleSheet('color: white; font-weight: bold; font-size: 16')
+
+        # layout_thr.addWidget(det_thr)
+        layout_thr.addStretch()
+        # layout_thr.addWidget(val_label)
+        track_layout.addLayout(layout_thr)
+
+        # conf_slider = QSlider(Qt.Horizontal)
+        # conf_slider.setRange(0, 100)
+        # conf_slider.setValue(40)
+        # conf_slider.setStyleSheet(SLIDER_STYLE)        
+        # track_layout.addWidget(conf_slider)
+
+        # conf_slider.valueChanged.connect(lambda val: val_label.setText(str(val))) # zmiana napisu w gui
+        return track_widget, track_alg_list
 
 
 
@@ -156,6 +208,12 @@ class VideoWindowUI(QMainWindow):
         for path in file_paths:
             item = QListWidgetItem(path)
             self.model_det_cars.addItem(item)
+            print(f'załadowano {item}')
+
+    def populate_track_algs(self, algs):
+        for alg in algs:
+            item = QListWidgetItem(alg.value)
+            self.track_alg_list.addItem(item)
             print(f'załadowano {item}')
 
 
@@ -216,6 +274,14 @@ class VideoWindowUI(QMainWindow):
         x = (screen_size.width() - width) // 2
         y = (screen_size.height() - height) // 2
         self.move(x, y)
+
+
+    def show_value_tooltip(self, value):
+        # Pobieramy aktualną pozycję kursora myszy na ekranie
+        cursor_pos = QCursor.pos()
+        
+        # Poprawne wywołanie dymku systemowego PyQt
+        QToolTip.showText(cursor_pos, f"Próg: {value}", self)
 
 class VideoLabel(QLabel):
     size_changed = pyqtSignal(int, int)

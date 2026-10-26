@@ -6,7 +6,7 @@ import cv2
 
 from ultralytics import YOLO
 import supervision as sv
-from trackers import ByteTrackTracker
+from trackers import ByteTrackTracker, BoTSORTTracker, OCSORTTracker, SORTTracker
 
 root = os.getcwd()
 models_det_dir_park_slot = os.path.join(root, "models\\park_det_models")
@@ -19,14 +19,18 @@ vehicle_classes = [2, 3, 5, 7]
 class ModelType(Enum):
     DET_PARK_SPOT = "park_spot_det"
     DET_CAR = "car_det"
-    TRACKING = "tracking"
+
+class TrackerAlg(Enum):
+    SORTTracker = "SORTTracker"
+    OCSORTTracker = "OCSORTTracker"
+    BoTSORTTracker = "BoTSORTTracker"
+    ByteTrack = "ByteTrack"
 
 class Models():
     def __init__(self):
         self.active_models = {
             ModelType.DET_PARK_SPOT: None,
             ModelType.DET_CAR: None,
-            ModelType.TRACKING: None
         }
         self.models_det_park_spot = []
         self.loaded_model_det_park_spot = None
@@ -34,13 +38,12 @@ class Models():
 
         self.models_det_cars = []
         self.loaded_model_det_cars = None
-        self.model_det_park_cars_conf = 0.25
+        self.model_det_cars_conf = 0.25
 
-        self.is_tracking_enabled = True
-        self.tracker = ByteTrackTracker(
-            track_activation_threshold=0.25,
-            minimum_consecutive_frames=1
-            )
+        self.trackers = TrackerAlg
+        self.trackers_algs = Tracking_algorithms()
+        self.loaded_tracker = None
+        self.is_tracking_enabled = False
             
            
         self.box_annotator = sv.BoxAnnotator()
@@ -81,14 +84,14 @@ class Models():
 
 
     def process_frame(self, frame):
+        results = None
         if self.loaded_model_det_park_spot is not None:
             frame = self.check_parking_slots(frame)
 
         if self.loaded_model_det_cars is not None:
-            frame = self.detect_cars(frame)
-
-        # if self.loaded_model_det_cars is not None and self.loaded_model_track_cars is not None:
-        #     frame = self.track_cars(frame)
+            frame, results = self.detect_cars(frame)
+            if self.loaded_model_det_cars is not None and self.loaded_tracker is not None:
+                frame = self.track_cars(frame, results)
 
         return frame
 
@@ -113,19 +116,16 @@ class Models():
 
     def detect_cars(self, frame):
         if self.loaded_model_det_cars == 'yolo26m.pt':
-            results = self.model(
+            results = self.loaded_model_det_cars(
             frame, 
-            conf=self.model_det_park_cars_conf, 
+            conf=self.model_det_cars_conf, 
             classes=vehicle_classes,  # <-- wykrycia tylko do pojazdów
             verbose=False)[0]
         else: 
-            results = self.loaded_model_det_cars(frame, conf=0.25, verbose=False)[0]
+            results = self.loaded_model_det_cars(frame, conf=self.model_det_cars_conf, verbose=False)[0]
 
 
-        if self.is_tracking_enabled:
-            frame = self.track_cars(frame, results)
-            return frame
-        else:
+        if not self.is_tracking_enabled:
             for box in results.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cls = int(box.cls[0])
@@ -137,13 +137,21 @@ class Models():
                     (x1, y1 - 5),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2
                 )
-            return frame
+        return frame, results
+
+    def change_cars_thr(self, value):
+        self.model_det_cars_conf = value
+
+    def change_park_thr(self, value):
+        self.model_det_park_spot_conf = value
+
+
 
     def track_cars(self, frame, result):
         detections = sv.Detections.from_ultralytics(result)
 
         # 3. Przypisanie identyfikatorów przez ByteTrack
-        detections = self.tracker.update(detections)
+        detections = self.loaded_tracker.update(detections)
 
         # 4. Pominięcie obiektów bez przypisanego ID
         detections = detections[detections.tracker_id != -1]
@@ -175,9 +183,90 @@ class Models():
         )
         return annotated_frame
 
+    def set_track_alg(self, algtype):
+        self.reset_track_alg()
+        self.is_tracking_enabled = True
+        if algtype == TrackerAlg.ByteTrack.value:
+            self.loaded_tracker = self.trackers_algs.ByteTrack
+        elif algtype == TrackerAlg.BoTSORTTracker.value:
+            self.loaded_tracker = self.trackers_algs.BoTSORTTracker
+        elif algtype == TrackerAlg.OCSORTTracker.value:
+            self.loaded_tracker = self.trackers_algs.OCSORTTracker
+        elif algtype == TrackerAlg.SORTTracker.value:
+            self.loaded_tracker = self.trackers_algs.SORTTracker
+        else:
+            self.loaded_tracker = None
+            print(f'nieznany typ trackera {algtype}')
+            self.is_tracking_enabled = False
+        print(f"ustawiono tracker {self.loaded_tracker.__class__.__name__} tacking enabled? {self.is_tracking_enabled}")
+
+    def reset_track_alg(self):
+        if self.loaded_tracker is not None:
+            self.loaded_tracker.reset()
+            print("zresetowano dane trackera")
+        self.loaded_tracker = None
+        self.is_tracking_enabled = False
 
 
 
 class Tracking_algorithms():
     def __init__(self):
-        self.bytetrack
+        self.ByteTrack = ByteTrackTracker(
+            lost_track_buffer=30,
+            frame_rate=30.0, #todo  przetwarzanie z pomijaniem klatek
+            track_activation_threshold=0.7, # pewnosc przy inicjowaniu nowych sladow
+            minimum_consecutive_frames=2,   # liczba klatek zanim otrzyma id
+            minimum_iou_threshold=0.1,
+            high_conf_det_threshold=0.6,
+            # state_estimator_class=XYXYStateEstimator,
+            # iou=None
+        )
+
+        self.BoTSORTTracker = BoTSORTTracker(
+            lost_track_buffer=30,
+            frame_rate=30.0,
+            track_activation_threshold=0.7,
+            minimum_consecutive_frames=2,
+            minimum_iou_threshold_first_assoc=0.2,
+            minimum_iou_threshold_second_assoc=0.5,
+            minimum_iou_threshold_unconfirmed_assoc=0.3,
+            high_conf_det_threshold=0.6,
+            enable_cmc=True, # kompensacja ruchu kamery
+            cmc_method="sparseOptFlow", # "sift" "sparseOptFlow" "ecc"
+            cmc_downscale=2,
+            instant_first_frame_activation=True,
+            # state_estimator_class=XCYCWHStateEstimator,
+            # iou=None
+        )
+
+        self.OCSORTTracker = OCSORTTracker(
+            lost_track_buffer=30,
+            frame_rate=30.0,
+            minimum_consecutive_frames=3,
+            minimum_iou_threshold=0.3,
+            direction_consistency_weight=0.2,
+            high_conf_det_threshold=0.6,
+            delta_t=3,
+            # state_estimator_class=XCYCSRStateEstimator,
+            # iou=None
+        )
+        
+        self.SORTTracker = SORTTracker(
+            lost_track_buffer=30,
+            frame_rate=30.0,
+            track_activation_threshold=0.25,
+            minimum_consecutive_frames=3,
+            minimum_iou_threshold=0.3,
+            # state_estimator_class=XYXYStateEstimator,
+            # iou=None
+        )
+
+
+
+def main():
+    # a = Tracking_algorithms()
+    print(help(SORTTracker))
+
+if __name__ == "__main__":
+
+    main()
