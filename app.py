@@ -15,6 +15,8 @@ from backend.visualization.video import Video
 from backend.visualization.frame_process import FrameProcessor
 from backend.detections.yolo_detection import YOLODetection
 from backend.tracking.tracking import Tracking_algorithms
+from backend.parking_validator import ParkingValidator
+
 def main():
     app = QApplication(sys.argv)
 
@@ -23,7 +25,8 @@ def main():
     yolo_detections = YOLODetection()
     tracking = Tracking_algorithms()
     predictions = 1
-    frame_processor = FrameProcessor(yolo_detections, tracking, predictions)
+    park_validator = ParkingValidator()
+    frame_processor = FrameProcessor(yolo_detections, tracking, predictions, park_validator)
     video = Video()
     
     controller = AppController(view, video, yolo_detections, tracking, frame_processor)

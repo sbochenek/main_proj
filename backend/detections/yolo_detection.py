@@ -85,14 +85,13 @@ class YOLODetection():
         # Aktualizacja stanu dopiero po udanym wczytaniu
         if model_type == ModelType.DET_PARK_SPOT:
             self.park_det_loaded = new_model
-
         elif model_type == ModelType.DET_CAR:
             self.car_det_loaded = new_model
 
         self.active_models[model_type] = model_name
 
         print(
-            f"Backend -> Zaktualizowano "
+            f"Backend -> Zaktualizowano {model_type}"
             f"[{model_type.value}] na model: {model_name}"
         )
 
@@ -120,18 +119,18 @@ class YOLODetection():
 
 
     def detect_park_slot(self, frame):
-        if self.park_det_loaded:
+        if self.park_det_loaded is not None:
             results = self.park_det_loaded(frame, conf=self.park_conf, verbose=False)[0]
             return results
         else:
-            return False
+            return None
         
     def detect_cars(self, frame):
-        if self.car_det_loaded:
+        if self.car_det_loaded is not None:
             results = self.car_det_loaded(frame, conf=self.car_conf, verbose=False)[0]
             return results
         else: 
-            return False
+            return None
 
     def change_cars_thr(self, value):
         print(f"zmiana thr w detekcji pojazdow na: {value}")

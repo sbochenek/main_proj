@@ -84,6 +84,10 @@ class AppController:
             self.handle_visualization_change
         )
 
+        self._view.checkbox_validator.stateChanged.connect(
+            self.handle_visualization_change
+        )
+
         self._view.slider_det_park_spot.sliderReleased.connect(lambda: self.handle_slider_release_park_det(self._view.slider_det_park_spot.value()))
         self._view.slider_det_cars.sliderReleased.connect(lambda: self.handle_slider_release_cars_det(self._view.slider_det_cars.value()))
         self.handle_visualization_change()
@@ -146,11 +150,13 @@ class AppController:
         self._yolo_models.change_cars_thr(value/100)
 
     def handle_tracker_change(self, item):
-        self._tracking.set_track_alg(item.text())
+        self._tracking.change_tracker(item.text())
+        self._frame_processor.annotator.reset_traces()
 
     def handle_visualization_change(self):
         self._frame_processor.visualization_options_changed.emit(
         self._view.checkbox_car_detection.isChecked(),
         self._view.checkbox_park_detection.isChecked(),
-        self._view.checkbox_tracking.isChecked()
+        self._view.checkbox_tracking.isChecked(),
+        self._view.checkbox_validator.isChecked()
     )

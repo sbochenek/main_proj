@@ -15,7 +15,12 @@ import cv2
 class VideoWindowUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.options_container, self.checkbox_car_detection, self.checkbox_park_detection, self.checkbox_tracking = create_visualization_options()
+        (self.options_container, 
+         self.checkbox_car_detection, 
+         self.checkbox_park_detection, 
+         self.checkbox_tracking,
+         self.checkbox_validator
+         ) = create_visualization_options()
 
         self.model_det_park_spot = create_widget_list()
         self.model_det_cars = create_widget_list()

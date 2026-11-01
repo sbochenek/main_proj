@@ -70,15 +70,18 @@ def create_visualization_options():
     checkbox_car_detection = QCheckBox("Detekcja pojazdów", options_container)
     checkbox_park_detection = QCheckBox("Detekcja miejsc parkingowych", options_container)
     checkbox_tracking = QCheckBox("Tracking", options_container)
-
-    checkbox_car_detection.setChecked(True)
-    checkbox_park_detection.setChecked(True)
-    checkbox_tracking.setChecked(True)
+    checkbox_validator = QCheckBox("walidacja parkowania", options_container)
+    
+    checkbox_validator.setChecked(False)
+    checkbox_car_detection.setChecked(False)
+    checkbox_park_detection.setChecked(False)
+    checkbox_tracking.setChecked(False)
 
     for checkbox in (
         checkbox_car_detection,
         checkbox_park_detection,
-        checkbox_tracking
+        checkbox_tracking,
+        checkbox_validator
     ):
         checkbox.setStyleSheet(CHECKBOX_STYLE)
         options_layout.addWidget(checkbox)
@@ -87,7 +90,8 @@ def create_visualization_options():
         options_container,
         checkbox_car_detection,
         checkbox_park_detection,
-        checkbox_tracking
+        checkbox_tracking,
+        checkbox_validator
     )
 
 class SelectableListWidget(QListWidget):

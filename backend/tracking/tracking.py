@@ -71,10 +71,10 @@ class Tracking_algorithms():
       )
 
   def track_cars(self, result):
-    if self.loaded_tracker:
+    if self.loaded_tracker is not None:
       detections = sv.Detections.from_ultralytics(result)
 
-      # 3. Przypisanie identyfikatorów przez ByteTrack
+      # 3. Przypisanie identyfikatorów
       detections = self.loaded_tracker.update(detections)
       # 4. Pominięcie obiektów bez przypisanego ID
       detections = detections[detections.tracker_id != -1]
@@ -89,7 +89,7 @@ class Tracking_algorithms():
       ]
       return detections, labels
     else: 
-      return False, False
+      return None, None
 
 
   def set_track_alg(self, algtype):
@@ -118,14 +118,15 @@ class Tracking_algorithms():
     self.is_tracking_enabled = False
 
   def deactivate_tracking(self):
-    print("wylaczanie trackowania"
-           f"gfd")
+    print("wylaczanie trackowania")
     self.reset_track_alg()
     self.is_tracking_enabled = False
     self.loaded_tracker = None
 
   def change_tracker(self, algtype):
+    print(f"aktywny tracker: {self.loaded_tracker.__class__.__name__ }"
+          f"zmiana na tracker {algtype}")
     if self.loaded_tracker.__class__.__name__ == algtype:
-      self.deactivate_tracking(algtype)
+      self.deactivate_tracking()
     else:
        self.set_track_alg(algtype)
