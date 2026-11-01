@@ -11,9 +11,9 @@ class Video(QThread):
     frame_ready = pyqtSignal(np.ndarray)
     error_occurred = pyqtSignal(str)
     
-    def __init__(self, models):
+    def __init__(self, frameProcessor):
         super().__init__()
-        self.models = models
+        self.frameProcessor = frameProcessor
         self.width = 1280
         self.height = 900
         self.source = None
@@ -66,7 +66,7 @@ class Video(QThread):
                     break
 
                 # Inferencja odbywa się w wątku Video,
-                processed_frame = self.models.process_frame(frame)
+                processed_frame = self.frameProcessor.process_frame(frame)
 
                 self.frame_ready.emit(processed_frame)
 

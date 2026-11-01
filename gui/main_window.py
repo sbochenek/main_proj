@@ -1,12 +1,12 @@
-# ./gui.py
+# ./gui/main_window.py
 from PyQt5.QtWidgets import (
-    QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QScrollArea,
-    QPushButton, QLabel, QToolTip, QSlider, QLineEdit, QListWidgetItem, QListWidget,
+    QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame, QScrollArea,
+    QPushButton, QLabel, QToolTip, QCheckBox, QLineEdit, QListWidgetItem, QListWidget,
 )
 
 from PyQt5.QtCore import pyqtSignal, QEvent, Qt, QPoint
-from gui_styles.styles import (SCROLL_BAR_STYLE, SLIDER_STYLE)
-
+from .styles import (SCROLL_BAR_STYLE, SLIDER_STYLE)
+from .components import (create_widget_list, create_slider, create_model_widget, create_visualization_options)
 
 from PyQt5.QtGui import QImage, QPixmap, QCursor
 import cv2
@@ -15,9 +15,13 @@ import cv2
 class VideoWindowUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.model_det_park_spot = self.widget_model_list()
-        self.model_det_cars = self.widget_model_list()
+        self.options_container, self.checkbox_car_detection, self.checkbox_park_detection, self.checkbox_tracking = create_visualization_options()
 
+        self.model_det_park_spot = create_widget_list()
+        self.model_det_cars = create_widget_list()
+
+        self.track_alg_list = create_widget_list()
+        self.pred_alg_list = create_widget_list()
 
         self.video_source_text = QLineEdit()
         self.video_label = VideoLabel("Podaj źródło video...")
@@ -48,7 +52,9 @@ class VideoWindowUI(QMainWindow):
         main_models_widget = QWidget()
         main_models_widget.setMaximumWidth(350)
         main_models_layout = QVBoxLayout(main_models_widget)
-    
+
+        main_models_layout.addWidget(self.options_container)
+        
         models_content_widget = QWidget()
         models_content_layout = QVBoxLayout(models_content_widget)
         models_content_layout.setSpacing(20)
@@ -60,14 +66,36 @@ class VideoWindowUI(QMainWindow):
         models_scroll_area.setStyleSheet(SCROLL_BAR_STYLE)
         models_scroll_area.setWidget(models_content_widget)
 
-        widget_det_park_spot, self.slider_det_park_spot = self._create_model_card("modele detekcji miejsc parkingowych", self.model_det_park_spot)
-        widget_det_cars, self.slider_det_cars = self._create_model_card("modele detekcji pojazdów", self.model_det_cars)
+        self.slider_det_park_spot, self.park_val_label = create_slider()
+        self.slider_det_cars, self.cars_val_label = create_slider()
+        widget_det_park_spot = create_model_widget("modele detekcji miejsc parkingowych",
+                                                        self.model_det_park_spot,
+                                                        self.slider_det_park_spot,
+                                                        self.park_val_label
+                                                        )
+        widget_det_cars = create_model_widget("modele detekcji pojazdów",
+                                                  self.model_det_cars,
+                                                  self.slider_det_cars,
+                                                  self.cars_val_label
+                                                  )
         models_content_layout.addWidget(widget_det_park_spot)
         models_content_layout.addWidget(widget_det_cars)
 
-        track_widget, self.track_alg_list = self._create_track_alg_card("algorytmy śledzenia obiektow")
+        self.slider_track, self.track_val_label= create_slider()
+        track_widget = create_model_widget("algorytmy śledzenia obiektow",
+                                            self.track_alg_list,
+                                            self.slider_track,
+                                            self.track_val_label,
+                                            )
         models_content_layout.addWidget(track_widget)
 
+        self.slider_pred, self.pred_val_label= create_slider()
+        predict_widget = create_model_widget("algorytmy predykcji ruchu obiektow",
+                                            self.pred_alg_list,
+                                            self.slider_pred,
+                                            self.pred_val_label,
+                                            )
+        models_content_layout.addWidget(predict_widget)
 
         main_models_layout.addWidget(models_scroll_area)
 
@@ -105,55 +133,8 @@ class VideoWindowUI(QMainWindow):
         main_video_workspace_layout.addLayout(video_toolbar)
         
         return main_video_workspace_widget
-
-    def _create_model_card(self, text: str, widget_model_list: QListWidget):
-        """funkcja przygotowujaca widget w ktorym beda umieszczone modele"""
-        model_widget = QWidget()
-        model_widget.setMinimumSize(250,200)
-        model_widget.setStyleSheet('background-color: #37393b; border-radius: 10px')
-
-        model_layout = QVBoxLayout()
-        model_widget.setLayout(model_layout)
-
-        model_layout.addSpacing(10)
-        model_layout.setAlignment(Qt.AlignTop)
-
-        model_text = QLabel(text)
-        model_text.setStyleSheet('color: white; font-size: 12pt;')
-        model_layout.addWidget(model_text)
-
-        model_layout.addWidget(widget_model_list)
-
-        layout_thr = QHBoxLayout()
-        det_thr = QLabel("Próg detekcji:")
-        det_thr.setStyleSheet('color: white')
-        val_label = QLabel("40")  # Startowa wartość
-        val_label.setStyleSheet('color: white; font-weight: bold; font-size: 16')
-
-        layout_thr.addWidget(det_thr)
-        layout_thr.addStretch()
-        layout_thr.addWidget(val_label)
-        model_layout.addLayout(layout_thr)
-
-        conf_slider = QSlider(Qt.Horizontal)
-        conf_slider.setRange(0, 100)
-        conf_slider.setValue(40)
-        conf_slider.setStyleSheet(SLIDER_STYLE)        
-        model_layout.addWidget(conf_slider)
-
-        conf_slider.valueChanged.connect(lambda val: val_label.setText(str(val))) # zmiana napisu w gui
-        return model_widget, conf_slider
-
-    def widget_model_list(self) -> QListWidget:
-        models_list = QListWidget()
-        content_layout = QVBoxLayout(models_list)
-        content_layout.setAlignment(Qt.AlignLeft)
-        #models_list.setWidgetResizable(True)
-        models_list.setStyleSheet(SCROLL_BAR_STYLE)
-
-        return models_list
     
-    def _create_track_alg_card(self, text):
+    def _create_track_alg_card(self, text, slider, val_label):
         track_widget = QWidget()
         track_widget.setMinimumSize(250,200)
         track_widget.setStyleSheet('background-color: #37393b; border-radius: 10px')
@@ -183,14 +164,14 @@ class VideoWindowUI(QMainWindow):
 
         # layout_thr.addWidget(det_thr)
         layout_thr.addStretch()
-        # layout_thr.addWidget(val_label)
+        layout_thr.addWidget(val_label)
         track_layout.addLayout(layout_thr)
 
         # conf_slider = QSlider(Qt.Horizontal)
         # conf_slider.setRange(0, 100)
         # conf_slider.setValue(40)
         # conf_slider.setStyleSheet(SLIDER_STYLE)        
-        # track_layout.addWidget(conf_slider)
+        track_layout.addWidget(slider)
 
         # conf_slider.valueChanged.connect(lambda val: val_label.setText(str(val))) # zmiana napisu w gui
         return track_widget, track_alg_list
@@ -216,6 +197,11 @@ class VideoWindowUI(QMainWindow):
             self.track_alg_list.addItem(item)
             print(f'załadowano {item}')
 
+    def populate_pred_algs(self, algs):
+        for alg in algs:
+            item = QListWidgetItem(alg)
+            self.pred_alg_list.addItem(item)
+            print(f'załadowano {item}')
 
 
 
@@ -245,7 +231,6 @@ class VideoWindowUI(QMainWindow):
             Qt.KeepAspectRatio, 
             Qt.SmoothTransformation
         ))
-
 
 
     ## metody do zmiany rozmiarow aplikacji
