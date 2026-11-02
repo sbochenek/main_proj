@@ -41,65 +41,83 @@ SCROLL_BAR_STYLE = """
                                     }"""
 
 QLIST_WIDGET_STYLE = """
-                                    /* 1. Główny tory paska pionowego */
-                                    QScrollBar:vertical {
-                                        border: none;
-                                        background: #2b2b2b;       /* Kolor tła całego paska */
-                                        width: 12px;               /* Szerokość paska */
-                                        margin: 0px 0px 0px 0px;   /* Bez marginesów na strzałki */
-                                        border-radius: 6px;
-                                    }
+/* 1. Główny tory paska pionowego */
+QScrollBar:vertical {
+    border: none;
+    background: #2b2b2b;       /* Kolor tła całego paska */
+    width: 12px;               /* Szerokość paska */
+    margin: 0px 0px 0px 0px;   /* Bez marginesów na strzałki */
+    border-radius: 6px;
+}
 
-                                    /* 2. Uchwyt / Suwak */
-                                    QScrollBar::handle:vertical {
-                                        background: #555555;       /* Kolor suwaka */
-                                        min-height: 20px;          /* Minimalna wysokość suwaka */
-                                        border-radius: 6px;        /* Zaokrąglone rogi */
-                                    }
+/* 2. Uchwyt / Suwak */
+QScrollBar::handle:vertical {
+    background: #555555;       /* Kolor suwaka */
+    min-height: 20px;          /* Minimalna wysokość suwaka */
+    border-radius: 6px;        /* Zaokrąglone rogi */
+}
 
-                                    /* Stan najechania myszką na suwak */
-                                    QScrollBar::handle:vertical:hover {
-                                        background: #007acc;       /* Zmiana koloru po najechaniu */
-                                    }
+/* Stan najechania myszką na suwak */
+QScrollBar::handle:vertical:hover {
+    background: #007acc;       /* Zmiana koloru po najechaniu */
+}
 
-                                    /* Stan kliknięcia suwaka */
-                                    QScrollBar::handle:vertical:pressed {
-                                        background: #005999;
-                                    }
+/* Stan kliknięcia suwaka */
+QScrollBar::handle:vertical:pressed {
+    background: #005999;
+}
 
-                                    /* 3. Ukrycie przycisków góra/dół (strzałek) */
-                                    QScrollBar::sub-line:vertical, QScrollBar::add-line:vertical {
-                                        border: none;
-                                        background: none;
-                                        height: 0px;
-                                    }
+/* 3. Ukrycie przycisków góra/dół (strzałek) */
+QScrollBar::sub-line:vertical, QScrollBar::add-line:vertical {
+    border: none;
+    background: none;
+    height: 0px;
+}
 
-                                    /* 4. Tło toru (nad i pod suwakiem) */
-                                    QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical,
-                                    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                                        background: none;
-                                    }
+/* 4. Tło toru (nad i pod suwakiem) */
+QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical,
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
 
-                                    QListWidget::item {
-                                        color: white;
-                                        background-color: #37393b;
-                                        padding: 8px 10px;
-                                        margin: 2px 5px;
-                                        border-radius: 6px;
-                                        outline: none;
-                                    }
+QListWidget::item {
+    color: white;
+    background-color: #37393b;
+    padding: 0px;          /* było: 8px 10px */
+    margin: 0px;           /* było: 2px 5px */
+    border-radius: 0px;    /* zaokrąglenie przenieś do CustomRowWidget jeśli chcesz */
+    outline: none;
+}
 
-                                    QListWidget::item:hover {
-                                        background-color: #45484a;
-                                        color: white;
-                                    }
+QListWidget::item:hover {
+    background-color: #45484a;
+    color: white;
+}
 
-                                    QListWidget::item:selected {
-                                        background-color: #007acc;
-                                        color: white;
-                                        font-weight: normal;
-                                        outline: none;
-                                    }"""
+QListWidget::item:selected {
+    background-color: #007acc;
+    color: white;
+    font-weight: normal;
+    outline: none;
+}
+    QListWidget#StandardList::item {
+    color: white;
+    background-color: #37393b;
+    padding: 8px 10px;
+    margin: 2px 5px;
+    border-radius: 6px;
+    outline: none;
+}
+
+QListWidget#StandardList::item:hover {
+    background-color: #45484a;
+    color: white;
+}
+
+QListWidget#StandardList::item:selected {
+    background-color: #007acc;
+    color: white;
+}"""
 
 
 SLIDER_STYLE = """
@@ -181,3 +199,4 @@ CHECKBOX_STYLE = """
         color: #777777;
     }
 """
+

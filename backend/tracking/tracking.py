@@ -20,55 +20,51 @@ class Tracking_algorithms():
       self.loaded_tracker = None
       self.is_tracking_enabled = False
 
-      self.ByteTrack = ByteTrackTracker(
-          lost_track_buffer=30,
-          frame_rate=30.0, #todo  przetwarzanie z pomijaniem klatek
-          track_activation_threshold=0.7, # pewnosc przy inicjowaniu nowych sladow
-          minimum_consecutive_frames=2,   # liczba klatek zanim otrzyma id
-          minimum_iou_threshold=0.1,
-          high_conf_det_threshold=0.6,
-          # state_estimator_class=XYXYStateEstimator,
-          # iou=None
-      )
-
-      self.BoTSORTTracker = BoTSORTTracker(
-          lost_track_buffer=30,
-          frame_rate=30.0,
-          track_activation_threshold=0.7,
-          minimum_consecutive_frames=2,
-          minimum_iou_threshold_first_assoc=0.2,
-          minimum_iou_threshold_second_assoc=0.5,
-          minimum_iou_threshold_unconfirmed_assoc=0.3,
-          high_conf_det_threshold=0.6,
-          enable_cmc=True, # kompensacja ruchu kamery
-          cmc_method="sparseOptFlow", # "sift" "sparseOptFlow" "ecc"
-          cmc_downscale=2,
-          instant_first_frame_activation=True,
-          # state_estimator_class=XCYCWHStateEstimator,
-          # iou=None
-      )
-
-      self.OCSORTTracker = OCSORTTracker(
-          lost_track_buffer=30,
-          frame_rate=30.0,
-          minimum_consecutive_frames=3,
-          minimum_iou_threshold=0.3,
-          direction_consistency_weight=0.2,
-          high_conf_det_threshold=0.6,
-          delta_t=3,
-          # state_estimator_class=XCYCSRStateEstimator,
-          # iou=None
-      )
+      self.ByteTrack_config = {'lost_track_buffer':30,
+          'frame_rate':30.0,
+         'track_activation_threshold':0.7,
+          'minimum_consecutive_frames':2,
+          'minimum_iou_threshold':0.1,
+          'high_conf_det_threshold':0.6
+          }
       
-      self.SORTTracker = SORTTracker(
-          lost_track_buffer=30,
-          frame_rate=30.0,
-          track_activation_threshold=0.25,
-          minimum_consecutive_frames=3,
-          minimum_iou_threshold=0.3,
-          # state_estimator_class=XYXYStateEstimator,
-          # iou=None
-      )
+      self.BoTSORTTracker_config = {
+        "lost_track_buffer": 30,
+        "frame_rate": 30.0,
+        "track_activation_threshold": 0.7,
+        "minimum_consecutive_frames": 2,
+        "minimum_iou_threshold_first_assoc": 0.2,
+        "minimum_iou_threshold_second_assoc": 0.5,
+        "minimum_iou_threshold_unconfirmed_assoc": 0.3,
+        "high_conf_det_threshold": 0.6,
+        "enable_cmc": True,  # kompensacja ruchu kamery
+        "cmc_method": "sparseOptFlow",  # "sift" "sparseOptFlow" "ecc"
+        "cmc_downscale": 2,
+        "instant_first_frame_activation": True,
+      }
+
+      self.OCSORTTracker_config = {
+        "lost_track_buffer": 30,
+        "frame_rate": 30.0,
+        "minimum_consecutive_frames": 3,
+        "minimum_iou_threshold": 0.3,
+        "direction_consistency_weight": 0.2,
+        "high_conf_det_threshold": 0.6,
+        "delta_t": 3,
+      }
+
+      self.SORTTracker_config = {
+        "lost_track_buffer": 30,
+        "frame_rate": 30.0,
+        "track_activation_threshold": 70,
+        "minimum_consecutive_frames": 3,
+        "minimum_iou_threshold": 0.3,
+      }
+
+      self.ByteTrack = ByteTrackTracker(**self.ByteTrack_config)
+      self.BoTSORTTracker = BoTSORTTracker(**self.BoTSORTTracker_config)
+      self.OCSORTTracker = OCSORTTracker(**self.OCSORTTracker_config)
+      self.SORTTracker = SORTTracker(**self.SORTTracker_config)
 
   def track_cars(self, result):
     if self.loaded_tracker is not None:
@@ -91,6 +87,31 @@ class Tracking_algorithms():
     else: 
       return None, None
 
+
+  def get_config(self, alg: TrackerAlg) -> dict:
+    mapping = {
+        TrackerAlg.ByteTrack:       self.ByteTrack_config,
+        TrackerAlg.BoTSORTTracker:  self.BoTSORTTracker_config,
+        TrackerAlg.OCSORTTracker:   self.OCSORTTracker_config,
+        TrackerAlg.SORTTracker:     self.SORTTracker_config,
+    }
+    return mapping[alg]
+  
+  def update_config(self, tracker_name: str, new_params: dict):
+    alg = TrackerAlg(tracker_name)
+
+    if alg == TrackerAlg.ByteTrack:
+        self.ByteTrack_config.update(new_params)
+        self.ByteTrack = ByteTrackTracker(**self.ByteTrack_config)
+    elif alg == TrackerAlg.BoTSORTTracker:
+        self.BoTSORTTracker_config.update(new_params)
+        self.BoTSORTTracker = BoTSORTTracker(**self.BoTSORTTracker_config)
+    elif alg == TrackerAlg.OCSORTTracker:
+        self.OCSORTTracker_config.update(new_params)
+        self.OCSORTTracker = OCSORTTracker(**self.OCSORTTracker_config)
+    elif alg == TrackerAlg.SORTTracker:
+        self.SORTTracker_config.update(new_params)
+        self.SORTTracker = SORTTracker(**self.SORTTracker_config)
 
   def set_track_alg(self, algtype):
     self.reset_track_alg()

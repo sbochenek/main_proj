@@ -53,7 +53,11 @@ class AppController:
         self._view.populate_models_det_park_spot(self._yolo_models.det_park_list)
         self._view.populate_models_det_cars(self._yolo_models.det_cars_list)
 
-        self._view.populate_track_algs(self._tracking.trackers)
+        self._view.populate_track_algs(
+            self._tracking.trackers,
+            self._tracking.get_config,          # przekazujemy funkcję, nie dict
+        )
+        self._view.tracker_params_changed.connect(self._on_tracker_params_changed)
         # self._view.populate_pred_algs(self._trackingpredictors)
         
         # polaczenie eventu zmiany screenu z zmiana video w backendzie
@@ -69,7 +73,7 @@ class AppController:
             lambda item: self.handle_model_change(ModelType.DET_CAR, item)
         )
         self._view.track_alg_list.itemClicked.connect(
-            lambda item: self.handle_tracker_change(item)
+            lambda item: self.handle_tracker_change(self._view.track_alg_list.itemWidget(item).text)
         )
 
         self._view.checkbox_car_detection.stateChanged.connect(
@@ -149,9 +153,14 @@ class AppController:
     def handle_slider_release_cars_det(self, value):
         self._yolo_models.change_cars_thr(value/100)
 
-    def handle_tracker_change(self, item):
-        self._tracking.change_tracker(item.text())
+    def handle_tracker_change(self, tracker_text: str):
+        self._tracking.change_tracker(tracker_text)
         self._frame_processor.annotator.reset_traces()
+
+    def _on_tracker_params_changed(self, tracker_name: str, new_params: dict):
+    # Wywołujemy metodę w Tracking_algorithms, która zaktualizuje config i przebuduje tracker
+        self._tracking.update_config(tracker_name, new_params)
+        print(f"Zaktualizowano parametry dla {tracker_name}")
 
     def handle_visualization_change(self):
         self._frame_processor.visualization_options_changed.emit(

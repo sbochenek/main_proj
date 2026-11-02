@@ -1,18 +1,19 @@
 # ./gui/main_window.py
 from PyQt5.QtWidgets import (
     QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame, QScrollArea,
-    QPushButton, QLabel, QToolTip, QCheckBox, QLineEdit, QListWidgetItem, QListWidget,
+    QPushButton, QLabel, QToolTip, QCheckBox, QLineEdit, QListWidgetItem, QListWidget, 
 )
 
-from PyQt5.QtCore import pyqtSignal, QEvent, Qt, QPoint
+from PyQt5.QtCore import pyqtSignal, QEvent, Qt, QPoint, QSize
 from .styles import (SCROLL_BAR_STYLE, SLIDER_STYLE)
-from .components import (create_widget_list, create_slider, create_model_widget, create_visualization_options)
+from .components import (create_widget_list, create_slider, create_model_widget, create_visualization_options, create_track_widget, CustomRowWidget)
 
 from PyQt5.QtGui import QImage, QPixmap, QCursor
 import cv2
 
 
 class VideoWindowUI(QMainWindow):
+    tracker_params_changed = pyqtSignal(str, dict)
     def __init__(self):
         super().__init__()
         (self.options_container, 
@@ -28,11 +29,16 @@ class VideoWindowUI(QMainWindow):
         self.track_alg_list = create_widget_list()
         self.pred_alg_list = create_widget_list()
 
+        self.model_det_park_spot.setObjectName("StandardList")
+        self.model_det_cars.setObjectName("StandardList")
+
         self.video_source_text = QLineEdit()
         self.video_label = VideoLabel("Podaj źródło video...")
 
         self.setWindowTitle("project")
         self.resize(1500, 700)
+
+
         self._build_ui()
         self.resize_to_screen_ratio(6/7, 6/7)
 
@@ -87,7 +93,7 @@ class VideoWindowUI(QMainWindow):
         models_content_layout.addWidget(widget_det_cars)
 
         self.slider_track, self.track_val_label= create_slider()
-        track_widget = create_model_widget("algorytmy śledzenia obiektow",
+        track_widget = create_track_widget("algorytmy śledzenia obiektow",
                                             self.track_alg_list,
                                             self.slider_track,
                                             self.track_val_label,
@@ -196,11 +202,19 @@ class VideoWindowUI(QMainWindow):
             self.model_det_cars.addItem(item)
             print(f'załadowano {item}')
 
-    def populate_track_algs(self, algs):
+    def populate_track_algs(self, algs, get_config):
         for alg in algs:
-            item = QListWidgetItem(alg.value)
-            self.track_alg_list.addItem(item)
-            print(f'załadowano {item}')
+            item = QListWidgetItem(self.track_alg_list)
+            row_widget = CustomRowWidget(
+                alg.value,
+                self.track_alg_list,
+                item,
+                params=get_config(alg),
+            )
+            row_widget.params_changed.connect(self.tracker_params_changed.emit)
+            item.setSizeHint(QSize(250, row_widget.height()))
+            self.track_alg_list.setItemWidget(item, row_widget)
+            print(f"załadowano {item}")
 
     def populate_pred_algs(self, algs):
         for alg in algs:
