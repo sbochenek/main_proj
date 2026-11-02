@@ -11,7 +11,7 @@ class TrackerAlg(Enum):
     SORTTracker = "SORTTracker"
     OCSORTTracker = "OCSORTTracker"
     BoTSORTTracker = "BoTSORTTracker"
-    ByteTrack = "ByteTrack"
+    ByteTrack = "ByteTrackTracker"
 
 class Tracking_algorithms():
     
