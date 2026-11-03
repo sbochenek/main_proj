@@ -1,22 +1,9 @@
-# models.py
-import os
-from enum import Enum
+# main_app\backend\predictions\predictions.py
 
+print("[Predictions] start")
 from ultralytics.trackers.utils.kalman_filter import KalmanFilterXYAH
 import numpy as np
-
-import onnxruntime as ort
-print("ONNX Runtime:", ort.__version__)
-
-import cv2
-print("OpenCV OK")
-
-from ultralytics import YOLO
-print("Ultralytics OK")
-
 import supervision as sv
-print("Supervision OK")
-
 
 
 class Predictions():
@@ -182,3 +169,6 @@ class Predictions():
                 "height": h
             })
 
+
+
+print("[Predictions] ok")

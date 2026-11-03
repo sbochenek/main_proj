@@ -16,13 +16,20 @@ class FrameProcessor(QObject):
 
     visualization_options_changed = pyqtSignal(bool, bool, bool, bool)
 
-    def __init__(self, yolo_detection, tracking, predictions, park_validator):
+    def __init__(self, yolo_detection, rf_detections, tracking, predictions, park_validator):
         super().__init__()
         self.annotator = Annotator()# todo: dodac annotatora dla kazdej opcji
+        self.yolo_det_annotator = Annotator(label_color=sv.Color(r=0, g=255, b=0),box_color=sv.Color(r=0, g=255, b=0))
+        self.rf_det_annotator = Annotator()
+        self.tracker_annotator = Annotator(sv.Color.RED)
+        self.predictions_annotator = Annotator()
+        self.park_val_annotator = Annotator()
+
         self.draw_car_detection = False
         self.draw_park_detection = False
         self.draw_tracking = False
         self.draw_validation = False
+        self.rf_detections = rf_detections
         self.yolo_detection = yolo_detection
         self.tracking = tracking
         self.predictions = predictions
@@ -72,13 +79,15 @@ class FrameProcessor(QObject):
             self.processing_finished.emit()
 
 
-    def process_visualization(self,frame,
-                              car_detection_results,
-                              park_detection_results,
-                              track_detections,
-                              track_labels,
-                              validation_labels,
-                              car_dets_val):
+    def process_visualization(self,
+        frame,
+        car_detection_results,
+        park_detection_results,
+        track_detections,
+        track_labels,
+        validation_labels,
+        car_dets_val
+    ):
 
         try:
             if self.draw_park_detection:
@@ -96,37 +105,10 @@ class FrameProcessor(QObject):
                     )
 
             if self.draw_tracking:
-                print("rysowanie trackingu")
-                frame = self.annotator.box_annotator.annotate(
-                    scene=frame.copy(),
-                    detections=track_detections
-                )
-
-                frame = self.annotator.label_annotator.annotate(
-                    scene=frame,
-                    detections=track_detections,
-                    labels=track_labels
-                )
-
-                frame = self.annotator.trace_annotator.annotate(
-                    scene=frame,
-                    detections=track_detections
-                )
-                print('rysowanie trackingu')
+                frame = self.draw_tracking_frame(frame, track_detections, track_labels)
                 
             if self.draw_car_detection:
-                print('rysowanie tylko detekcji samochodow')
-                for box in car_detection_results.boxes:
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    cls = int(box.cls[0])
-                    label = car_detection_results.names.get(cls, str(cls))
-                    conf_val = float(box.conf[0])
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.putText(
-                        frame, f"{label} {conf_val:.2f}",
-                        (x1, y1 - 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2
-                    )
+                frame = self.draw_yolo_det_frame(frame, car_detection_results)
 
             if self.draw_validation:
                 print("start rysowania walidacji")
@@ -136,7 +118,45 @@ class FrameProcessor(QObject):
             self.error_occurred.emit(str(exc))
         finally:
             return frame
-            
+
+    def draw_yolo_det_frame(self, frame, yolo_car_det):
+        detections = sv.Detections.from_ultralytics(yolo_car_det)
+        class_names = yolo_car_det.names
+        labels = [
+            f"{class_names[cls_id]} {conf:.2f}"
+            for cls_id, conf in zip(detections.class_id, detections.confidence)
+        ]
+        frame = self.yolo_det_annotator.box_annotator.annotate(
+            scene=frame,
+            detections=detections,
+        )
+        frame = self.yolo_det_annotator.label_annotator.annotate(
+            scene=frame,
+            detections=detections,
+            labels=labels
+        )
+        return frame
+    
+    def draw_tracking_frame(self, frame, track_detections, track_labels):
+        print("rysowanie trackingu")
+        frame = self.tracker_annotator.box_annotator.annotate(
+            scene=frame,
+            detections=track_detections
+        )
+
+        frame = self.tracker_annotator.label_annotator.annotate(
+            scene=frame,
+            detections=track_detections,
+            labels=track_labels
+        )
+
+        frame = self.tracker_annotator.trace_annotator.annotate(
+            scene=frame,
+            detections=track_detections
+        )
+        print('rysowanie trackingu')
+        return frame
+    
     def draw_validation_frame(self, frame, detections, labels):
         annotated_frame = frame
         custom_palette = sv.ColorPalette.from_hex([
@@ -180,10 +200,21 @@ class FrameProcessor(QObject):
 
 
 class Annotator():
-    def __init__(self):
-        self.box_annotator = sv.BoxAnnotator()
-        self.label_annotator = sv.LabelAnnotator()
-        self.trace_annotator = sv.TraceAnnotator()
+    def __init__(self, trace_color=None, label_color=None,box_color=None ):
+        self.box_annotator = sv.BoxAnnotator(
+            color= box_color if box_color is not None else sv.Color.WHITE,
+            thickness=2,
+        )
+        self.label_annotator = sv.LabelAnnotator(
+                text_color=label_color if label_color is not None else sv.Color.WHITE,
+                text_scale=0.6,
+                text_thickness=2,
+        )
+        self.trace_annotator = sv.TraceAnnotator(
+            color=trace_color if trace_color is not None else sv.Color.WHITE,
+            thickness=2,
+            trace_length=40,
+        )
 
     def reset_traces(self):
         if hasattr(self.trace_annotator, 'reset'):

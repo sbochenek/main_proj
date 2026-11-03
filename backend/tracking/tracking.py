@@ -4,6 +4,7 @@ from trackers import (
     OCSORTTracker,
     SORTTracker,
 )
+import threading
 from enum import Enum
 import supervision as sv
 
@@ -14,8 +15,14 @@ class TrackerAlg(Enum):
     ByteTrack = "ByteTrackTracker"
 
 class Tracking_algorithms():
-    
+  _TRACKER_CLASSES = {
+    TrackerAlg.ByteTrack: ByteTrackTracker,
+    TrackerAlg.BoTSORTTracker: BoTSORTTracker,
+    TrackerAlg.OCSORTTracker: OCSORTTracker,
+    TrackerAlg.SORTTracker: SORTTracker,
+  }
   def __init__(self):
+      self._lock = threading.RLock()
       self.trackers = TrackerAlg
       self.loaded_tracker = None
       self.is_tracking_enabled = False
@@ -56,7 +63,7 @@ class Tracking_algorithms():
       self.SORTTracker_config = {
         "lost_track_buffer": 30,
         "frame_rate": 30.0,
-        "track_activation_threshold": 70,
+        "track_activation_threshold": 0.7,
         "minimum_consecutive_frames": 3,
         "minimum_iou_threshold": 0.3,
       }
@@ -67,25 +74,20 @@ class Tracking_algorithms():
       self.SORTTracker = SORTTracker(**self.SORTTracker_config)
 
   def track_cars(self, result):
-    if self.loaded_tracker is not None:
-      detections = sv.Detections.from_ultralytics(result)
+    with self._lock:
+        tracker = self.loaded_tracker
+        if tracker is None or result is None:
+            return None, None
+        detections = sv.Detections.from_ultralytics(result)
+        detections = tracker.update(detections)
+        detections = detections[detections.tracker_id != -1]
 
-      # 3. Przypisanie identyfikatorów
-      detections = self.loaded_tracker.update(detections)
-      # 4. Pominięcie obiektów bez przypisanego ID
-      detections = detections[detections.tracker_id != -1]
+    labels = [
+        f"ID {tracker_id} {result.names[class_id]}"
+        for tracker_id, class_id in zip(detections.tracker_id, detections.class_id)
+    ]
+    return detections, labels
 
-      # 5. Przygotowanie etykiet: ID + nazwa klasy
-      labels = [
-          f"ID {tracker_id} {result.names[class_id]}"
-          for tracker_id, class_id in zip(
-              detections.tracker_id,
-              detections.class_id
-          )
-      ]
-      return detections, labels
-    else: 
-      return None, None
 
 
   def get_config(self, alg: TrackerAlg) -> dict:
@@ -99,37 +101,42 @@ class Tracking_algorithms():
   
   def update_config(self, tracker_name: str, new_params: dict):
     alg = TrackerAlg(tracker_name)
+    config = self.get_config(alg)
+    candidate = {**config, **new_params}
 
-    if alg == TrackerAlg.ByteTrack:
-        self.ByteTrack_config.update(new_params)
-        self.ByteTrack = ByteTrackTracker(**self.ByteTrack_config)
-    elif alg == TrackerAlg.BoTSORTTracker:
-        self.BoTSORTTracker_config.update(new_params)
-        self.BoTSORTTracker = BoTSORTTracker(**self.BoTSORTTracker_config)
-    elif alg == TrackerAlg.OCSORTTracker:
-        self.OCSORTTracker_config.update(new_params)
-        self.OCSORTTracker = OCSORTTracker(**self.OCSORTTracker_config)
-    elif alg == TrackerAlg.SORTTracker:
-        self.SORTTracker_config.update(new_params)
-        self.SORTTracker = SORTTracker(**self.SORTTracker_config)
+    # najpierw walidacja przez zbudowanie nowego obiektu
+    try:
+        new_tracker = self._TRACKER_CLASSES[alg](**candidate)
+    except Exception as exc:
+        print(f"Nieprawidłowe parametry {tracker_name}: {exc}")
+        return False
+
+    with self._lock:
+        config.update(new_params)
+        old_tracker = getattr(self, alg.name)   # nazwy enuma = nazwy atrybutów
+        setattr(self, alg.name, new_tracker)
+        if self.loaded_tracker is old_tracker:  # podmień też aktywny
+            self.loaded_tracker = new_tracker
+    return True
 
   def set_track_alg(self, algtype):
-    self.reset_track_alg()
-    self.is_tracking_enabled = True
-    if algtype == TrackerAlg.ByteTrack.value:
-        self.loaded_tracker = self.ByteTrack
-    elif algtype == TrackerAlg.BoTSORTTracker.value:
-        self.loaded_tracker = self.BoTSORTTracker
-    elif algtype == TrackerAlg.OCSORTTracker.value:
-        self.loaded_tracker = self.OCSORTTracker
-    elif algtype == TrackerAlg.SORTTracker.value:
-        self.loaded_tracker = self.SORTTracker
-    else:
-        self.loaded_tracker = None
-        print(f'nieznany typ trackera {algtype}')
-        self.is_tracking_enabled = False
-    print(f"ustawiono tracker: {self.loaded_tracker.__class__.__name__}"
-          f"tracking enabled?: {self.is_tracking_enabled}")
+    with self._lock:
+        self.reset_track_alg()
+        self.is_tracking_enabled = True
+        if algtype == TrackerAlg.ByteTrack.value:
+            self.loaded_tracker = self.ByteTrack
+        elif algtype == TrackerAlg.BoTSORTTracker.value:
+            self.loaded_tracker = self.BoTSORTTracker
+        elif algtype == TrackerAlg.OCSORTTracker.value:
+            self.loaded_tracker = self.OCSORTTracker
+        elif algtype == TrackerAlg.SORTTracker.value:
+            self.loaded_tracker = self.SORTTracker
+        else:
+            self.loaded_tracker = None
+            print(f'nieznany typ trackera {algtype}')
+            self.is_tracking_enabled = False
+        print(f"ustawiono tracker: {self.loaded_tracker.__class__.__name__}"
+            f"tracking enabled?: {self.is_tracking_enabled}")
 
   def reset_track_alg(self):
     if self.loaded_tracker is not None:

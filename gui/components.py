@@ -94,7 +94,7 @@ class CustomRowWidget(QWidget):
         self.text = text
         self.list_widget = list_widget
         self.item = item
-        self.params = params if params is not None else {}
+        self.params = dict(params) if params is not None else {}
 
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setStyleSheet("background-color: transparent;")
@@ -181,6 +181,7 @@ class CustomRowWidget(QWidget):
                     editor = QSpinBox()
                     editor.setRange(-10000, 10000)
                     editor.setValue(value)
+                    editor.setKeyboardTracking(False)
                     editor.valueChanged.connect(
                         lambda val, k=key: self._on_param_edited(k, val)
                     )
@@ -189,13 +190,20 @@ class CustomRowWidget(QWidget):
                     editor.setRange(-10000.0, 10000.0)
                     editor.setDecimals(4)
                     editor.setValue(value)
+                    editor.setSingleStep(0.05)
+                    editor.setKeyboardTracking(False)
                     editor.valueChanged.connect(
                         lambda val, k=key: self._on_param_edited(k, val)
                     )
+                elif key == "cmc_method":
+                    editor = QComboBox()
+                    editor.addItems(["sparseOptFlow", "sift", "ecc"])
+                    editor.setCurrentText(value)
+                    editor.currentTextChanged.connect(lambda t, k=key: self._on_param_edited(k, t))
                 else:
                     editor = QLineEdit(str(value))
-                    editor.textChanged.connect(
-                        lambda text, k=key: self._on_param_edited(k, text)
+                    editor.editingFinished.connect(
+                        lambda k=key, w=editor: self._on_param_edited(k, w.text())
                     )
 
                 # Stylizacja pól edycyjnych, żeby pasowały do ciemnego motywu
@@ -229,10 +237,8 @@ class CustomRowWidget(QWidget):
         menu.exec_(button.mapToGlobal(QPoint(0, button.height())))
 
     def _on_param_edited(self, key, new_value):
-        """Wywoływane natychmiast przy każdej zmianie w polu edycyjnym."""
         self.params[key] = new_value
-        # Emitujemy sygnał (można dodać debouncing, jeśli za dużo eventów)
-        self.params_changed.emit(self.text, self.params)
+        self.params_changed.emit(self.text, {key: new_value})
 
 
 def create_visualization_options():

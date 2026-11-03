@@ -3,10 +3,11 @@ from backend.detections.yolo_detection import ModelType
 from PyQt5.QtCore import QThread, Qt
 
 class AppController:
-    def __init__(self, view, video, yolo_detection, tracking, frame_processor):
+    def __init__(self, view, video, rf_detections, yolo_detection, tracking, frame_processor):
         self._view = view
         self._video = video
 
+        self._rf_detections = rf_detections
         self._yolo_models = yolo_detection
         self._tracking = tracking
 
@@ -155,12 +156,11 @@ class AppController:
 
     def handle_tracker_change(self, tracker_text: str):
         self._tracking.change_tracker(tracker_text)
-        self._frame_processor.annotator.reset_traces()
+        self._frame_processor.tracker_annotator.reset_traces()
 
-    def _on_tracker_params_changed(self, tracker_name: str, new_params: dict):
-    # Wywołujemy metodę w Tracking_algorithms, która zaktualizuje config i przebuduje tracker
-        self._tracking.update_config(tracker_name, new_params)
-        print(f"Zaktualizowano parametry dla {tracker_name}")
+    def _on_tracker_params_changed(self, tracker_name, new_params):
+        if self._tracking.update_config(tracker_name, new_params):
+            self._frame_processor.tracker_annotator.reset_traces()
 
     def handle_visualization_change(self):
         self._frame_processor.visualization_options_changed.emit(

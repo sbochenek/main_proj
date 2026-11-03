@@ -1,4 +1,4 @@
-# models.py
+# main_app\backend\detections\yolo_detection.py
 import os
 from enum import Enum
 

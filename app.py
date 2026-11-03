@@ -2,7 +2,7 @@
 import sys
 print("[APP] Początek pliku", flush=True)
 
-#from inference import get_model
+from inference import get_model
 print("[APP] Inference OK", flush=True)
 
 from PyQt5.QtWidgets import QApplication
@@ -14,7 +14,9 @@ from controller import AppController
 from backend.visualization.video import Video
 from backend.visualization.frame_process import FrameProcessor
 from backend.detections.yolo_detection import YOLODetection
+from backend.detections.rf_detections import RFdetection
 from backend.tracking.tracking import Tracking_algorithms
+from backend.predictions.predictions import Predictions
 from backend.parking_validator import ParkingValidator
 
 def main():
@@ -23,13 +25,14 @@ def main():
     # 1. Inicjalizacja warstw
     view = VideoWindowUI()
     yolo_detections = YOLODetection()
+    rf_detections = RFdetection()
     tracking = Tracking_algorithms()
-    predictions = 1
+    predictions = Predictions()
     park_validator = ParkingValidator()
-    frame_processor = FrameProcessor(yolo_detections, tracking, predictions, park_validator)
+    frame_processor = FrameProcessor(yolo_detections, rf_detections, tracking, predictions, park_validator)
     video = Video()
     
-    controller = AppController(view, video, yolo_detections, tracking, frame_processor)
+    controller = AppController(view, video, rf_detections, yolo_detections, tracking, frame_processor)
 
     app.aboutToQuit.connect(controller.shutdown)
     view.show()
