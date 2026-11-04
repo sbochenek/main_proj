@@ -73,20 +73,29 @@ class Tracking_algorithms():
       self.OCSORTTracker = OCSORTTracker(**self.OCSORTTracker_config)
       self.SORTTracker = SORTTracker(**self.SORTTracker_config)
 
-  def track_cars(self, result):
+  def track_cars(self, cars_detections, class_names, frame=None):
+    """
+    cars_detections: sv.Detections (z detektora)
+    class_names:     dict {class_id: nazwa}, np. results.names
+    frame:           klatka BGR, potrzebna BoT-SORT (CMC)
+    """
     with self._lock:
         tracker = self.loaded_tracker
-        if tracker is None or result is None:
+        if tracker is None or cars_detections is None:
             return None, None
-        detections = sv.Detections.from_ultralytics(result)
-        detections = tracker.update(detections)
-        detections = detections[detections.tracker_id != -1]
+
+        if isinstance(tracker, BoTSORTTracker):
+            tracked = tracker.update(cars_detections, frame)
+        else:
+            tracked = tracker.update(cars_detections)
+
+        tracked = tracked[tracked.tracker_id != -1]
 
     labels = [
-        f"ID {tracker_id} {result.names[class_id]}"
-        for tracker_id, class_id in zip(detections.tracker_id, detections.class_id)
+        f"ID {tracker_id} {class_names[class_id]}"
+        for tracker_id, class_id in zip(tracked.tracker_id, tracked.class_id)
     ]
-    return detections, labels
+    return tracked, labels
 
 
 

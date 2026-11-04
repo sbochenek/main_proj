@@ -197,7 +197,7 @@ class CustomRowWidget(QWidget):
                     )
                 elif key == "cmc_method":
                     editor = QComboBox()
-                    editor.addItems(["sparseOptFlow", "sift", "ecc"])
+                    editor.addItems(["sparseOptFlow", "sift", 'orb', "ecc"])
                     editor.setCurrentText(value)
                     editor.currentTextChanged.connect(lambda t, k=key: self._on_param_edited(k, t))
                 else:
