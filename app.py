@@ -2,7 +2,7 @@
 import sys
 print("[APP] Początek pliku", flush=True)
 
-# from inference import get_model
+from inference import get_model
 print("[APP] Inference OK", flush=True)
 
 from PyQt5.QtWidgets import QApplication

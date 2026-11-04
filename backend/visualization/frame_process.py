@@ -18,11 +18,12 @@ class FrameProcessor(QObject):
 
     def __init__(self, yolo_detection, rf_detections, tracking, predictions, park_validator):
         super().__init__()
-        self.yolo_det_annotator = Annotator(label_color=sv.Color(r=0, g=255, b=0),box_color=sv.Color(r=0, g=255, b=0))
-        self.rf_det_annotator = Annotator()
-        self.tracker_annotator = Annotator(sv.Color.RED)
-        self.predictions_annotator = Annotator()
-        self.park_val_annotator = Annotator()
+        self.yolo_det_annotator = CarDetectionAnnotator()
+        self.rf_det_annotator = CarDetectionAnnotator()
+        self.park_annotator = ParkDetectionAnnotator()
+        self.tracker_annotator = TrackingAnnotator()
+        # self.predictions_annotator = Annotator()
+        self.validation_annotator = ValidationAnnotator()
 
         self.draw_car_detection = False
         self.draw_park_detection = False
@@ -35,6 +36,7 @@ class FrameProcessor(QObject):
         self.park_validator = park_validator
 
         self.visualization_options_changed.connect(self.set_visualization_options)
+
     @pyqtSlot(object)
     def process_frame(self, frame):
         car_detection_results = None
@@ -42,6 +44,8 @@ class FrameProcessor(QObject):
         car_names = None
 
         park_detection_results = None
+        park_detection_labels = None
+        park_names = None
 
         track_detections = None
         track_labels = None
@@ -49,7 +53,7 @@ class FrameProcessor(QObject):
         validation_labels = None
         parked_cars_det_validation = None
         try:
-            # 1. Detekcja pojazdow
+            # Detekcja pojazdow yolo
             if self.yolo_detection.car_det_loaded:
                 results = self.yolo_detection.detect_cars(frame)
                 if results is not None:
@@ -60,16 +64,47 @@ class FrameProcessor(QObject):
                         for cls_id, conf in zip(car_detection_results.class_id,
                                                 car_detection_results.confidence)
                     ]
+            # Detekcja pojazdow roboflow
+            elif self.rf_detections.car_det_loaded:
+                result = self.rf_detections.detect_cars(frame)
+                if result is not None:
+                    car_detection_results = sv.Detections(
+                        xyxy=result.xyxy,
+                        confidence=result.confidence,
+                        class_id=result.class_id
+                    )
 
-            # detekcja miejsc parkingowych
+            # detekcja miejsc parkingowych YOLO
             if self.yolo_detection.park_det_loaded:
-                park_detection_results = self.yolo_detection.detect_park_slot(frame)
+                results = self.yolo_detection.detect_park_slot(frame)
+                if results is not None:
+                    park_names = results.names
+                    park_detection_results = sv.Detections.from_ultralytics(results)
+                    park_detection_labels = [
+                        f"{park_names[cls_id]} {conf:.2f}"
+                        for cls_id, conf in zip(park_detection_results.class_id,
+                                                park_detection_results.confidence)
+                    ]
+            # detekcja miejsc parkingowych ROBOFLOW
+            elif self.rf_detections.park_det_loaded:
+                result = self.rf_detections.detect_park_slot(frame)
+                park_detection_results = sv.Detections(
+                        xyxy=result.xyxy,
+                        confidence=result.confidence,
+                        class_id=result.class_id
+                        )
+                park_names = self.rf_detections.park_class_names
+                park_detection_labels = [
+                    f"{park_names[cls_id]} {conf:.2f}"
+                    for cls_id, conf in zip(
+                        park_detection_results.class_id,
+                        park_detection_results.confidence
+                    )
+                ]
 
             # Tracking pojazdów
             if self.tracking.loaded_tracker:
-                    track_detections, track_labels = self.tracking.track_cars(
-                    car_detection_results, car_names, frame
-                    )
+                track_detections, track_labels = self.tracking.track_cars(car_detection_results, car_names, frame)
 
             # walidacja parkowania
             if self.draw_validation:
@@ -81,15 +116,11 @@ class FrameProcessor(QObject):
             # )
 
             # 4. Wizualizacja
-            processed_frame = self.process_visualization(
-                frame,
-                car_detection_results,
-                car_detection_labels,
-                park_detection_results,
-                track_detections,
-                track_labels,
-                validation_labels,
-                parked_cars_det_validation
+            processed_frame = self.process_visualization( frame,
+                car_detection_results, car_detection_labels,
+                park_detection_results, park_detection_labels,
+                track_detections, track_labels,
+                validation_labels, parked_cars_det_validation
             )
 
             # Przekazanie gotowej klatki
@@ -102,104 +133,28 @@ class FrameProcessor(QObject):
 
     def process_visualization(self, frame,
         car_detection_results, car_detection_labels,
-        park_detection_results,
+        park_detection_results, park_detection_labels,
         track_detections, track_labels,
         validation_labels, car_dets_val):
 
         try:
             if self.draw_park_detection:
-                for box in park_detection_results.boxes:
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    cls = int(box.cls[0])
-                    label = park_detection_results.names.get(cls, str(cls))
-                    conf_val = float(box.conf[0])
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.putText(
-                        frame, f"{label} {conf_val:.2f}",
-                        (x1, y1 - 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2
-                    )
+                frame = self.park_annotator.annotate(frame, park_detection_results, park_detection_labels)
 
             if self.draw_tracking:
-                frame = self.draw_tracking_frame(frame, track_detections, track_labels)
+                frame = self.tracker_annotator.annotate(frame, track_detections, track_labels)
                 
             if self.draw_car_detection:
-                frame = self.draw_yolo_det_frame(frame, car_detection_results, car_detection_labels)
+                frame = self.yolo_det_annotator.annotate(frame, car_detection_results, car_detection_labels)
 
             if self.draw_validation:
-                frame = self.draw_validation_frame(frame, car_dets_val, validation_labels)
+                frame = self.validation_annotator.annotate(frame, car_dets_val, validation_labels)
 
         except Exception as exc:
             self.error_occurred.emit(str(exc))
         finally:
             return frame
 
-    def draw_yolo_det_frame(self, frame, yolo_car_det, car_detection_labels):
-        print('yolo draw')
-        frame = self.yolo_det_annotator.box_annotator.annotate(
-            scene=frame,
-            detections=yolo_car_det,
-        )
-        frame = self.yolo_det_annotator.label_annotator.annotate(
-            scene=frame,
-            detections=yolo_car_det,
-            labels=car_detection_labels
-        )
-        return frame
-    
-    def draw_tracking_frame(self, frame, track_detections, track_labels):
-        frame = self.tracker_annotator.box_annotator.annotate(
-            scene=frame,
-            detections=track_detections
-        )
-
-        frame = self.tracker_annotator.label_annotator.annotate(
-            scene=frame,
-            detections=track_detections,
-            labels=track_labels
-        )
-
-        frame = self.tracker_annotator.trace_annotator.annotate(
-            scene=frame,
-            detections=track_detections
-        )
-        return frame
-    
-    def draw_validation_frame(self, frame, detections, labels):
-        annotated_frame = frame
-        custom_palette = sv.ColorPalette.from_hex([
-            "#00FF00",  # zielony
-            "#FF0000",  # czerwony
-            "#FFFF00"   # żółty
-        ])
-        self.park_val_annotator.box_annotator.color = custom_palette
-        self.park_val_annotator.box_annotator.color_lookup = sv.ColorLookup.CLASS
-        self.park_val_annotator.label_annotator.color = custom_palette
-        self.park_val_annotator.label_annotator.color_lookup = sv.ColorLookup.CLASS
-
-        new_class_ids = []
-        for label in labels:
-            if "Poprawne parkowanie" in label:
-                new_class_ids.append(0)
-            elif "Niepoprawne parkowanie" in label:
-                new_class_ids.append(1) 
-            else:
-                new_class_ids.append(2)
-        detections.class_id = np.array(new_class_ids, dtype=int)
-        annotated_frame = frame.copy()
-
-        annotated_frame = self.park_val_annotator.box_annotator.annotate(
-            scene=annotated_frame,
-            detections=detections
-        )
-        annotated_frame = self.park_val_annotator.label_annotator.annotate(
-            scene=annotated_frame, 
-            detections=detections, 
-            labels=labels
-        )
-        return annotated_frame
-
-    
     def set_visualization_options(self, draw_car_detection: bool, draw_park_detection: bool, draw_tracking: bool, draw_validation: bool):
         self.draw_car_detection = draw_car_detection
         self.draw_park_detection = draw_park_detection
@@ -207,23 +162,147 @@ class FrameProcessor(QObject):
         self.draw_validation = draw_validation
 
 
-class Annotator():
-    def __init__(self, trace_color=None, label_color=None,box_color=None ):
-        self.box_annotator = sv.BoxAnnotator(
-            color= box_color if box_color is not None else sv.Color.WHITE,
-            thickness=2,
-        )
+
+
+class BaseAnnotator:
+    """Bazowy annotator – jedna odpowiedzialność: rysowanie jednego typu detekcji."""
+    def annotate(self, frame, detections, labels=None) -> np.ndarray:
+        raise NotImplementedError
+
+
+class CarDetectionAnnotator(BaseAnnotator):
+    """Rysuje detekcje samochodów (YOLO lub Roboflow) zielone boxy + label."""
+    def __init__(self):
+        color = sv.Color(r=0, g=255, b=0)
+        self.box_annotator = sv.BoxAnnotator(color=color, thickness=2)
         self.label_annotator = sv.LabelAnnotator(
-                text_color=label_color if label_color is not None else sv.Color.WHITE,
-                text_scale=0.6,
-                text_thickness=2,
-        )
-        self.trace_annotator = sv.TraceAnnotator(
-            color=trace_color if trace_color is not None else sv.Color.WHITE,
-            thickness=2,
-            trace_length=40,
+            text_color=color, text_scale=0.6, text_thickness=2
         )
 
+    def annotate(self, frame, detections, labels=None):
+        if detections is None or len(detections) == 0:
+            return frame
+        frame = self.box_annotator.annotate(scene=frame, detections=detections)
+        if labels is not None and len(labels) == len(detections):
+            frame = self.label_annotator.annotate(
+                scene=frame, detections=detections, labels=labels
+            )
+        return frame
+
+
+class ParkDetectionAnnotator(BaseAnnotator):
+    """Rysuje detekcje miejsc parkingowych zielone boxy + label."""
+    def __init__(self):
+        self.color = sv.Color(r=0, g=255, b=0)
+        self.box_annotator = sv.BoxAnnotator(color=self.color, thickness=2)
+        self.label_annotator = sv.LabelAnnotator(
+            text_color=self.color, text_scale=0.6, text_thickness=2
+        )
+
+    def annotate(self, frame, detections, labels=None):
+        if detections is None or len(detections) == 0:
+            return frame
+        frame = self.box_annotator.annotate(scene=frame, detections=detections)
+        if labels is not None and len(labels) == len(detections):
+            frame = self.label_annotator.annotate(
+                scene=frame, detections=detections, labels=labels
+            )
+        return frame
+
+
+class TrackingAnnotator(BaseAnnotator):
+    """Rysuje tracking boxy + labele + ślady (trace)."""
+    def __init__(self):
+        color = sv.Color.RED
+        self.box_annotator = sv.BoxAnnotator(color=color, thickness=2)
+        self.label_annotator = sv.LabelAnnotator(
+            text_color=color, text_scale=0.6, text_thickness=2
+        )
+        self.trace_annotator = sv.TraceAnnotator(
+            color=color, thickness=2, trace_length=40
+        )
+
+    def annotate(self, frame, detections, labels=None):
+        if detections is None or len(detections) == 0:
+            return frame
+        frame = self.box_annotator.annotate(scene=frame, detections=detections)
+        if labels is not None and len(labels) == len(detections):
+            frame = self.label_annotator.annotate(
+                scene=frame, detections=detections, labels=labels
+            )
+        # trace wymaga tracker_id; bez niego supervision rzuci błąd
+        if detections.tracker_id is not None:
+            frame = self.trace_annotator.annotate(
+                scene=frame, detections=detections
+            )
+        return frame
+
     def reset_traces(self):
-        if hasattr(self.trace_annotator, 'reset'):
+        if hasattr(self.trace_annotator, "reset"):
             self.trace_annotator.reset()
+
+
+class ValidationAnnotator(BaseAnnotator):
+    """Rysuje wyniki walidacji parkowania – kolor zależy od klasy."""
+    _PALETTE = sv.ColorPalette.from_hex([
+        "#00FF00",  # 0 poprawne
+        "#FF0000",  # 1 niepoprawne
+        "#FFFF00",  # 2 inne
+    ])
+    _LABEL_TO_CLASS = (
+        ("Poprawne parkowanie",    0),
+        ("Niepoprawne parkowanie", 1),
+    )
+    _DEFAULT_CLASS_ID = 2
+
+    def __init__(self):
+        self.box_annotator = sv.BoxAnnotator(
+            color=self._PALETTE,
+            thickness=2,
+            color_lookup=sv.ColorLookup.CLASS,
+        )
+        self.label_annotator = sv.LabelAnnotator(
+            text_color=self._PALETTE,
+            text_scale=0.6,
+            text_thickness=2,
+            color_lookup=sv.ColorLookup.CLASS,
+        )
+
+    def _classify(self, labels, n: int) -> np.ndarray:
+        """Zwraca class_id o długości n; przy braku/niezgodności – same 'inne'."""
+        if labels is None or len(labels) != n:
+            return np.full(n, self._DEFAULT_CLASS_ID, dtype=int)
+        ids = np.empty(n, dtype=int)
+        for i, label in enumerate(labels):
+            if label is None:
+                ids[i] = self._DEFAULT_CLASS_ID
+                continue
+            for fragment, cid in self._LABEL_TO_CLASS:
+                if fragment in label:
+                    ids[i] = cid
+                    break
+            else:
+                ids[i] = self._DEFAULT_CLASS_ID
+        return ids
+
+    def annotate(self, frame, detections, labels=None):
+        det = sv.Detections(
+            xyxy=detections.xyxy,
+            mask=detections.mask,
+            confidence=detections.confidence,
+            class_id=self._classify(labels, len(detections)),
+            tracker_id=detections.tracker_id,
+            data=detections.data,
+        )
+        if detections is None or len(detections) == 0:
+            return frame
+
+        det.class_id = self._classify(labels, len(det))
+
+        out = frame.copy()
+        out = self.box_annotator.annotate(scene=out, detections=det)
+        if labels is not None and len(labels) == len(det):
+            out = self.label_annotator.annotate(
+                scene=out, detections=det, labels=labels
+            )
+        return out

@@ -50,13 +50,16 @@ class AppController:
 
         # Uruchomienie wątku przetwarzania
         self._processing_thread.start()
-        # ladowanie modeli do gui
+
+        # ladowanie modeli detekcji do gui
         self._view.populate_models_det_park_spot(self._yolo_models.det_park_list)
         self._view.populate_models_det_cars(self._yolo_models.det_cars_list)
+        self._view.populate_rf_models_det_park_spot(self._rf_detections.det_park_list)
+        self._view.populate_rf_models_det_cars(self._rf_detections.det_cars_list)
 
         self._view.populate_track_algs(
             self._tracking.trackers,
-            self._tracking.get_config,          # przekazujemy funkcję, nie dict
+            self._tracking.get_config,
         )
         self._view.tracker_params_changed.connect(self._on_tracker_params_changed)
         # self._view.populate_pred_algs(self._trackingpredictors)
@@ -73,6 +76,14 @@ class AppController:
         self._view.model_det_cars.itemClicked.connect(
             lambda item: self.handle_model_change(ModelType.DET_CAR, item)
         )
+
+        self._view.rf_model_det_park_spot.itemClicked.connect(
+            lambda item: self.handle_rf_model_change(ModelType.DET_PARK_SPOT, item)
+        )
+        self._view.rf_model_det_cars.itemClicked.connect(
+            lambda item: self.handle_rf_model_change(ModelType.DET_CAR, item)
+        )
+
         self._view.track_alg_list.itemClicked.connect(
             lambda item: self.handle_tracker_change(self._view.track_alg_list.itemWidget(item).text)
         )
@@ -144,7 +155,7 @@ class AppController:
 
     ## funkcje dla modeli
     def handle_model_change(self, model_type, item):
-        print(f"handle_model_change typ: {model_type}, item: {item.text()}")
+        print(f"[CONTROLLER] handle YOLO_MODELS change type: {model_type}, item: {item.text()}")
         model_name = item.text()
         self._yolo_models.set_active_model(model_type, model_name)
 
@@ -153,6 +164,18 @@ class AppController:
 
     def handle_slider_release_cars_det(self, value):
         self._yolo_models.change_cars_thr(value/100)
+
+    def handle_rf_model_change(self, model_type, item):
+        print(f"[CONTROLLER] handle RF_MODELS change type: {model_type}, item: {item.text()}")
+        model_name = item.text()
+        self._rf_detections.set_active_model(model_type, model_name)
+
+    def handle_slider_release_park_det(self, value):
+        self._rf_detections.change_park_thr(value/100)
+
+    def handle_slider_release_cars_det(self, value):
+        self._rf_detections.change_cars_thr(value/100)
+
 
     def handle_tracker_change(self, tracker_text: str):
         self._tracking.change_tracker(tracker_text)

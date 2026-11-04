@@ -26,11 +26,16 @@ class VideoWindowUI(QMainWindow):
         self.model_det_park_spot = create_widget_list()
         self.model_det_cars = create_widget_list()
 
+        self.rf_model_det_park_spot = create_widget_list()
+        self.rf_model_det_cars = create_widget_list()
+
         self.track_alg_list = create_widget_list()
         self.pred_alg_list = create_widget_list()
 
         self.model_det_park_spot.setObjectName("StandardList")
         self.model_det_cars.setObjectName("StandardList")
+        self.rf_model_det_cars.setObjectName("StandardList")
+        self.rf_model_det_park_spot.setObjectName("StandardList")
 
         self.video_source_text = QLineEdit()
         self.video_label = VideoLabel("Podaj źródło video...")
@@ -79,18 +84,33 @@ class VideoWindowUI(QMainWindow):
 
         self.slider_det_park_spot, self.park_val_label = create_slider()
         self.slider_det_cars, self.cars_val_label = create_slider()
-        widget_det_park_spot = create_model_widget("modele detekcji miejsc parkingowych",
+        widget_det_park_spot = create_model_widget("modele yolo detekcji miejsc parkingowych",
                                                         self.model_det_park_spot,
                                                         self.slider_det_park_spot,
                                                         self.park_val_label
                                                         )
-        widget_det_cars = create_model_widget("modele detekcji pojazdów",
+        widget_det_cars = create_model_widget("modele yolo detekcji pojazdów",
                                                   self.model_det_cars,
                                                   self.slider_det_cars,
                                                   self.cars_val_label
                                                   )
         models_content_layout.addWidget(widget_det_park_spot)
         models_content_layout.addWidget(widget_det_cars)
+
+        self.rf_slider_det_park_spot, self.rf_park_val_label = create_slider()
+        self.rf_slider_det_cars, self.rf_cars_val_label = create_slider()
+        widget_rf_det_park_spot = create_model_widget("modele roboflow detekcji miejsc parkingowych",
+                                                        self.rf_model_det_park_spot,
+                                                        self.rf_slider_det_park_spot,
+                                                        self.rf_park_val_label
+                                                        )
+        widget_rf_det_cars = create_model_widget("modele roboflow detekcji pojazdów",
+                                                  self.rf_model_det_cars,
+                                                  self.rf_slider_det_cars,
+                                                  self.rf_cars_val_label
+                                                  )
+        models_content_layout.addWidget(widget_rf_det_park_spot)
+        models_content_layout.addWidget(widget_rf_det_cars)
 
         self.slider_track, self.track_val_label= create_slider()
         track_widget = create_track_widget("algorytmy śledzenia obiektow",
@@ -144,50 +164,6 @@ class VideoWindowUI(QMainWindow):
         main_video_workspace_layout.addLayout(video_toolbar)
         
         return main_video_workspace_widget
-    
-    def _create_track_alg_card(self, text, slider, val_label):
-        track_widget = QWidget()
-        track_widget.setMinimumSize(250,200)
-        track_widget.setStyleSheet('background-color: #37393b; border-radius: 10px')
-
-        track_layout = QVBoxLayout()
-        track_widget.setLayout(track_layout)
-
-        track_layout.addSpacing(10)
-        track_layout.setAlignment(Qt.AlignTop)
-
-        model_text = QLabel(text)
-        model_text.setStyleSheet('color: black; font-size: 12pt;')
-        track_layout.addWidget(model_text)
-
-        track_alg_list = QListWidget()
-        content_layout = QVBoxLayout(track_alg_list)
-        content_layout.setAlignment(Qt.AlignLeft)
-        #models_list.setWidgetResizable(True)
-        track_alg_list.setStyleSheet(SCROLL_BAR_STYLE)
-        track_layout.addWidget(track_alg_list)
-
-        layout_thr = QHBoxLayout()
-        # det_thr = QLabel("Próg detekcji:")
-        # det_thr.setStyleSheet('color: white')
-        # val_label = QLabel("40")  # Startowa wartość
-        # val_label.setStyleSheet('color: white; font-weight: bold; font-size: 16')
-
-        # layout_thr.addWidget(det_thr)
-        layout_thr.addStretch()
-        layout_thr.addWidget(val_label)
-        track_layout.addLayout(layout_thr)
-
-        # conf_slider = QSlider(Qt.Horizontal)
-        # conf_slider.setRange(0, 100)
-        # conf_slider.setValue(40)
-        # conf_slider.setStyleSheet(SLIDER_STYLE)        
-        track_layout.addWidget(slider)
-
-        # conf_slider.valueChanged.connect(lambda val: val_label.setText(str(val))) # zmiana napisu w gui
-        return track_widget, track_alg_list
-
-
 
 
     def populate_models_det_park_spot(self, file_paths: list[str]):
@@ -201,6 +177,19 @@ class VideoWindowUI(QMainWindow):
             item = QListWidgetItem(path)
             self.model_det_cars.addItem(item)
             print(f'załadowano {item}')
+
+    def populate_rf_models_det_park_spot(self, file_paths: list[str]):
+        for path in file_paths:
+            item = QListWidgetItem(path)
+            self.rf_model_det_park_spot.addItem(item)
+            print(f'załadowano {item}')
+
+    def populate_rf_models_det_cars(self, file_paths: list[str]):
+        for path in file_paths:
+            item = QListWidgetItem(path)
+            self.rf_model_det_cars.addItem(item)
+            print(f'załadowano {item}')
+
 
     def populate_track_algs(self, algs, get_config):
         for alg in algs:

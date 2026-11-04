@@ -1,30 +1,16 @@
 # main_app\backend\detections\yolo_detection.py
+
+print('[YOLO DETECTIONS] start')
 import os
-from enum import Enum
-
-from ultralytics.trackers.utils.kalman_filter import KalmanFilterXYAH
-import numpy as np
-
-
-import cv2
-print("OpenCV OK")
-
 from ultralytics import YOLO
-print("Ultralytics OK")
-
-print("Trackers OK")
+from .models_type import ModelType
 
 root = os.getcwd()
-models_det_dir_park_slot = os.path.join(root, "models\\park_det_models")
-models_det_dir_car = os.path.join(root, "models\\car_det_models")
-models_dir = os.path.join(root, "models")
+models_det_dir_park_slot = os.path.join(root, "models\\yolo_models\\park_det_models")
+models_det_dir_car = os.path.join(root, "models\\yolo_models\\car_det_models")
 
 
 vehicle_classes = [2, 3, 5, 7]
-
-class ModelType(Enum):
-    DET_PARK_SPOT = "park_spot_det"
-    DET_CAR = "car_det"
 
 
 print("[MODELS] Importy zakończone, definiuję klasę Models", flush=True)
@@ -140,3 +126,4 @@ class YOLODetection():
         print(f"zmiana thr w detekcji miejsc parkingowych na: {value}")
         self.park_conf = value
 
+print('[YOLO DETECTIONS] ok')
