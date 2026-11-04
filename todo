@@ -1,14 +1,4 @@
 bug przerwanie video po zmianie modelu
 
-implementacja algorytmow trackingu
 implementacja algorytmow predykcji
 
-dodanie bilbiotaki rfdet do wykrywania
-palaczenie wykrywania parkingow z pojazdami
-
-
-rozdzielic modele dzialjace z yolo i roboflow
-
-predykcja\
-osobny anotator
-zmiana poziomu detekcji jakie modele wykrywaja i osobna w trackingu jaki bedzie pokazywal

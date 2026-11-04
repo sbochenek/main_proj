@@ -94,8 +94,8 @@ class VideoWindowUI(QMainWindow):
                                                   self.slider_det_cars,
                                                   self.cars_val_label
                                                   )
-        models_content_layout.addWidget(widget_det_park_spot)
         models_content_layout.addWidget(widget_det_cars)
+        models_content_layout.addWidget(widget_det_park_spot)
 
         self.rf_slider_det_park_spot, self.rf_park_val_label = create_slider()
         self.rf_slider_det_cars, self.rf_cars_val_label = create_slider()
@@ -112,11 +112,8 @@ class VideoWindowUI(QMainWindow):
         models_content_layout.addWidget(widget_rf_det_park_spot)
         models_content_layout.addWidget(widget_rf_det_cars)
 
-        self.slider_track, self.track_val_label= create_slider()
         track_widget = create_track_widget("algorytmy śledzenia obiektow",
-                                            self.track_alg_list,
-                                            self.slider_track,
-                                            self.track_val_label,
+                                            self.track_alg_list
                                             )
         models_content_layout.addWidget(track_widget)
 

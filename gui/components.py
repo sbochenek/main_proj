@@ -58,7 +58,7 @@ def create_model_widget(text: str, widget_model_list: QListWidget, slider: QSlid
   return model_widget
 
 
-def create_track_widget(text: str, widget_model_list: QListWidget, slider: QSlider, val_label: str):
+def create_track_widget(text: str, widget_model_list: QListWidget):
   model_widget = QWidget() # glowny kontener danych modeli na widgety
   model_widget.setMinimumSize(250,300)
   model_widget.setStyleSheet('background-color: #37393b; border-radius: 10px')
@@ -74,17 +74,6 @@ def create_track_widget(text: str, widget_model_list: QListWidget, slider: QSlid
   model_layout.addWidget(model_text)
 
   model_layout.addWidget(widget_model_list)
-
-  layout_thr = QHBoxLayout()
-  det_thr = QLabel("Próg detekcji:")
-  det_thr.setStyleSheet('color: white')
-  layout_thr.addWidget(det_thr)
-  layout_thr.addStretch()
-  layout_thr.addWidget(val_label)
-  model_layout.addLayout(layout_thr)
-    
-  model_layout.addWidget(slider)
-
   return model_widget
 
 class CustomRowWidget(QWidget):
