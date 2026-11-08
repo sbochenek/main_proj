@@ -1,174 +1,114 @@
-# main_app\backend\predictions\predictions.py
-
-print("[Predictions] start")
-from ultralytics.trackers.utils.kalman_filter import KalmanFilterXYAH
+# main_app/backend/predictions/predictions.py
 import numpy as np
 import supervision as sv
+from ultralytics.trackers.utils.kalman_filter import KalmanFilterXYAH
 
 
-class Predictions():
-    def __init__(self):
+class Predictions:
+    def __init__(self, frames_to_predict: int = 30, max_missed: int = 30):
+        self.predictors = ["kalman filter"]
+        self.current_predictor = None
         self.kf = KalmanFilterXYAH()
-        self.next_track_id = 0
-        self.tracks = {}
-        self.box_annotator = sv.BoxAnnotator()
-        self.label_annotator = sv.LabelAnnotator()
-        self.trace_annotator = sv.TraceAnnotator()
-    def pred(self, frame, results):
-            print('wywolanie funkcji pred')
-            
-            detections_list = []
+        self.frames_to_predict = frames_to_predict
+        self.max_missed = max_missed      # po ilu klatkach bez detekcji usunąć ślad
+        self.tracks = {}                  # {track_id: {"mean", "cov", "missed"}}
+        self.trajectories = {}            # {track_id: ndarray (N, 2)} do rysowania
 
-            # 1. Predykcja Kalmana dla wszystkich istniejących śladów
-            for track_id, track in self.tracks.items():
-                track["mean"], track["covariance"] = self.kf.predict(
-                    track["mean"], track["covariance"]
-                )
+    def change_predictor(self, text):
+        print(f"zmiena predykcji z: {self.current_predictor} na: {text}")
+        if self.current_predictor == text:
+            self.current_predictor = None
+        if text in self.predictors:
+            self.current_predictor = text
+        self.reset()
+        print(f"predictor zmieniony: {self.current_predictor}")
 
-            # 2. Odczyt detekcji z YOLO dla bieżącej klatki i budowanie pomiarów dla Kalmana
-            yolo_detections = []
-            if results.boxes is not None and len(results.boxes) > 0:
-                boxes = results.boxes.xyxy.cpu().numpy()
-                classes = results.boxes.cls.cpu().numpy()
-                confidences = results.boxes.conf.cpu().numpy()
-                
-                for box, cls, conf in zip(boxes, classes, confidences):
-                    x1, y1, x2, y2 = box
-                    w = x2 - x1
-                    h = y2 - y1
-                    x_center = x1 + w / 2.0
-                    y_center = y1 + h / 2.0
-                    aspect_ratio = w / float(h) if h > 0 else 0
+    
+    def reset(self):
+        self.tracks.clear()
+        self.trajectories.clear()
 
-                    measurement = np.array([x_center, y_center, aspect_ratio, h])
-                    yolo_detections.append({
-                        "measurement": measurement,
-                        "cls": int(cls),
-                        "conf": float(conf)
-                    })
+    def set_horizon(self, frames: int):
+        self.frames_to_predict = max(1, int(frames))
 
-            # 3. Asocjacja i aktualizacja filtrów Kalmana
-            assigned_track_ids = set()
-            
-            # Listy do zbudowania sv.Detections dla Supervision
-            xyxy_list = []
-            tracker_id_list = []
-            confidence_list = []
-            class_id_list = []
+    @staticmethod
+    def _xyxy_to_xyah(box):
+        x1, y1, x2, y2 = box
+        w, h = x2 - x1, y2 - y1
+        h = max(h, 1e-3)
+        return np.array([x1 + w / 2.0, y1 + h / 2.0, w / h, h], dtype=np.float64)
 
-            for item in yolo_detections:
-                det = item["measurement"]
-                matched_id = None
-                min_dist = float("inf")
-                
-                for track_id, track in self.tracks.items():
-                    if track_id in assigned_track_ids:
-                        continue
-                    
-                    dist = np.linalg.norm(track["mean"][:2] - det[:2])
-                    if dist < 50.0 and dist < min_dist:
-                        min_dist = dist
-                        matched_id = track_id
+    @staticmethod
+    def _state_to_xyxy(mean):
+        x, y, a, h = mean[:4]
+        h = max(h, 1.0)
+        w = max(a * h, 1.0)
+        return [x - w / 2.0, y - h / 2.0, x + w / 2.0, y + h / 2.0]
 
-                if matched_id is not None:
-                    # Aktualizacja istniejącego śladu
-                    self.tracks[matched_id]["mean"], self.tracks[matched_id]["covariance"] = self.kf.update(
-                        self.tracks[matched_id]["mean"], self.tracks[matched_id]["covariance"], det
-                    )
-                    assigned_track_ids.add(matched_id)
-                    current_id = matched_id
-                    track_to_draw = self.tracks[matched_id]["mean"]
-                else:
-                    # Inicjalizacja nowego śladu
-                    mean, covariance = self.kf.initiate(det)
-                    self.tracks[self.next_track_id] = {"mean": mean, "covariance": covariance}
-                    current_id = self.next_track_id
-                    track_to_draw = mean
-                    assigned_track_ids.add(self.next_track_id)
-                    self.next_track_id += 1
+    def predict(self, tracked, class_names, frames_ahead=None):
+        """
+        tracked:     sv.Detections z tracker_id (wynik Tracking_algorithms.track_cars)
+        class_names: dict {class_id: nazwa}
+        zwraca:      (sv.Detections z pozycją za `frames_ahead` klatek, labels)
+        """
+        n = frames_ahead or self.frames_to_predict
+        if tracked is None or len(tracked) == 0 or tracked.tracker_id is None:
+            self._age_tracks(set())
+            return None, None
 
-                # Obliczenie współrzędnych xyxy z uaktualnionego stanu Kalmana
-                x, y, a, h = track_to_draw[:4]
-                w = a * h
-                x1 = int(x - w / 2)
-                y1 = int(y - h / 2)
-                x2 = int(x + w / 2)
-                y2 = int(y + h / 2)
+        seen = set()
+        xyxy_list, id_list, conf_list, cls_list = [], [], [], []
+        self.trajectories = {}
 
-                xyxy_list.append([x1, y1, x2, y2])
-                tracker_id_list.append(current_id)
-                confidence_list.append(item["conf"])
-                class_id_list.append(item["cls"])
+        confidences = (tracked.confidence if tracked.confidence is not None
+                       else np.ones(len(tracked), dtype=np.float32))
 
-            # 4. Jeśli mamy ślady, tworzymy obiekt sv.Detections i rysujemy adnotatorami
-            if len(xyxy_list) > 0:
-                detections = sv.Detections(
-                    xyxy=np.array(xyxy_list, dtype=np.float32),
-                    confidence=np.array(confidence_list, dtype=np.float32),
-                    class_id=np.array(class_id_list, dtype=int),
-                    tracker_id=np.array(tracker_id_list, dtype=int)
-                )
+        for box, tid, cid, conf in zip(tracked.xyxy, tracked.tracker_id,
+                                       tracked.class_id, confidences):
+            tid = int(tid)
+            measurement = self._xyxy_to_xyah(box)
 
-                # Przygotowanie etykiet (ID + nazwa klasy z modelu YOLO)
-                labels = [
-                    f"ID {tid} {results.names[cid]}"
-                    for tid, cid in zip(detections.tracker_id, detections.class_id)
-                ]
+            if tid not in self.tracks:
+                mean, cov = self.kf.initiate(measurement)
+            else:
+                mean, cov = self.kf.predict(self.tracks[tid]["mean"],
+                                            self.tracks[tid]["cov"])
+                mean, cov = self.kf.update(mean, cov, measurement)
 
-                # Rysowanie za pomocą Supervision Annotators
-                annotated_frame = frame.copy()
-                annotated_frame = self.box_annotator.annotate(scene=annotated_frame, detections=detections)
-                annotated_frame = self.label_annotator.annotate(scene=annotated_frame, detections=detections, labels=labels)
-                annotated_frame = self.trace_annotator.annotate(scene=annotated_frame, detections=detections)
+            self.tracks[tid] = {"mean": mean, "cov": cov, "missed": 0}
+            seen.add(tid)
 
-                for tid in tracker_id_list:
-                    if tid in self.tracks:
-                        # Pobieramy np. 15 klatek w przód
-                        future_steps = self.predict_future(tid, future_frames=20)
-                        
-                        points = []
-                        for step in future_steps:
-                            # Przeliczamy środki przewidywanych prostokątów na punkty na ekranie
-                            fx = int(step["x"])
-                            fy = int(step["y"])
-                            points.append((fx, fy))
-                        
-                        # Rysujemy linie łączące punkty przyszłej trajektorii
-                        for i in range(len(points) - 1):
-                            cv2.line(annotated_frame, points[i], points[i+1], (0, 255, 255), 2)  # Żółta linia
-                            cv2.circle(annotated_frame, points[i+1], 3, (0, 0, 255), -1)        # Czerwone kropki
+            # predykcja na n klatek do przodu (na kopiach, stan śladu bez zmian)
+            f_mean, f_cov = mean.copy(), cov.copy()
+            path = []
+            for _ in range(n):
+                f_mean, f_cov = self.kf.predict(f_mean, f_cov)
+                path.append(f_mean[:2].copy())
 
-                return annotated_frame
-                
-            return frame
+            self.trajectories[tid] = np.array(path)
+            xyxy_list.append(self._state_to_xyxy(f_mean))
+            id_list.append(tid)
+            conf_list.append(float(conf))
+            cls_list.append(int(cid))
 
-    def predict_future(self, track_id, future_frames=10):
+        self._age_tracks(seen)
 
-        track = self.tracks[track_id]
+        detections = sv.Detections(
+            xyxy=np.array(xyxy_list, dtype=np.float32),
+            confidence=np.array(conf_list, dtype=np.float32),
+            class_id=np.array(cls_list, dtype=int),
+            tracker_id=np.array(id_list, dtype=int),
+        )
+        labels = [
+            f"ID {tid} {class_names.get(cid, cid)} +{n}kl"
+            for tid, cid in zip(detections.tracker_id, detections.class_id)
+        ]
+        return detections, labels
 
-        mean = track["mean"].copy()
-        covariance = track["covariance"].copy()
-
-        predictions = []
-
-        for i in range(future_frames):
-
-            mean, covariance = self.kf.predict(
-                mean, covariance
-            )
-
-            x, y, a, h = mean[:4]
-
-            w = a * h
-
-            predictions.append({
-                "frame": i + 1,
-                "x": x,
-                "y": y,
-                "width": w,
-                "height": h
-            })
-
-
-
-print("[Predictions] ok")
+    def _age_tracks(self, seen):
+        for tid in list(self.tracks):
+            if tid in seen:
+                continue
+            self.tracks[tid]["missed"] += 1
+            if self.tracks[tid]["missed"] > self.max_missed:
+                del self.tracks[tid]

@@ -14,7 +14,7 @@ class FrameProcessor(QObject):
     # Informacja o zakończeniu przetwarzania
     processing_finished = pyqtSignal()
 
-    visualization_options_changed = pyqtSignal(bool, bool, bool, bool)
+    visualization_options_changed = pyqtSignal(bool, bool, bool, bool, bool)
 
     def __init__(self, yolo_detection, rf_detections, tracking, predictions, park_validator):
         super().__init__()
@@ -24,11 +24,13 @@ class FrameProcessor(QObject):
         self.tracker_annotator = TrackingAnnotator()
         # self.predictions_annotator = Annotator()
         self.validation_annotator = ValidationAnnotator()
-
+        self.prediction_annotator = PredictionAnnotator()
+        
         self.draw_car_detection = False
         self.draw_park_detection = False
         self.draw_tracking = False
         self.draw_validation = False
+        self.draw_predictions = False
         self.rf_detections = rf_detections
         self.yolo_detection = yolo_detection
         self.tracking = tracking
@@ -49,6 +51,8 @@ class FrameProcessor(QObject):
 
         track_detections = None
         track_labels = None
+        
+        pred_detections, pred_labels = None, None
 
         validation_labels = None
         parked_cars_det_validation = None
@@ -108,19 +112,22 @@ class FrameProcessor(QObject):
 
             # walidacja parkowania
             if self.draw_validation:
-                parked_cars_det_validation, validation_labels = self.park_validator.validate(car_detection_results, park_detection_results, self.tracking.is_tracking_enabled)
+                if track_detections is not None:
+                    parked_cars_det_validation, validation_labels = self.park_validator.validate(track_detections, park_detection_results, True)
+                else:
+                    parked_cars_det_validation, validation_labels = self.park_validator.validate(
+                        car_detection_results, park_detection_results, False)
             
             #  Predykcja
-            # prediction_results = self.predictions.process(
-            #     tracking_results
-            # )
+            if self.tracking.loaded_tracker and self.draw_predictions:
+                pred_detections, pred_labels = self.predictions.predict(track_detections, car_names)
 
             # 4. Wizualizacja
             processed_frame = self.process_visualization( frame,
                 car_detection_results, car_detection_labels,
                 park_detection_results, park_detection_labels,
                 track_detections, track_labels,
-                validation_labels, parked_cars_det_validation
+                validation_labels, parked_cars_det_validation,
             )
 
             # Przekazanie gotowej klatki
@@ -150,16 +157,20 @@ class FrameProcessor(QObject):
             if self.draw_validation:
                 frame = self.validation_annotator.annotate(frame, car_dets_val, validation_labels)
 
+            if self.draw_predictions:
+                frame = self.prediction_annotator.annotate(frame, self.predictions.trajectories, detections=track_detections)
+
         except Exception as exc:
             self.error_occurred.emit(str(exc))
         finally:
             return frame
 
-    def set_visualization_options(self, draw_car_detection: bool, draw_park_detection: bool, draw_tracking: bool, draw_validation: bool):
+    def set_visualization_options(self, draw_car_detection: bool, draw_park_detection: bool, draw_tracking: bool, draw_validation: bool, draw_prediciotn: bool):
         self.draw_car_detection = draw_car_detection
         self.draw_park_detection = draw_park_detection
         self.draw_tracking = draw_tracking
         self.draw_validation = draw_validation
+        self.draw_predictions = draw_prediciotn
 
 
 
@@ -243,66 +254,118 @@ class TrackingAnnotator(BaseAnnotator):
 
 
 class ValidationAnnotator(BaseAnnotator):
-    """Rysuje wyniki walidacji parkowania – kolor zależy od klasy."""
-    _PALETTE = sv.ColorPalette.from_hex([
-        "#00FF00",  # 0 poprawne
-        "#FF0000",  # 1 niepoprawne
-        "#FFFF00",  # 2 inne
-    ])
-    _LABEL_TO_CLASS = (
-        ("Poprawne parkowanie",    0),
-        ("Niepoprawne parkowanie", 1),
+    """Rysuje wyniki walidacji parkowania. Kolor wynika wyłącznie z tekstu etykiety."""
+
+    # Kolejność jest istotna: "Niepoprawne" musi być sprawdzone przed "Poprawne",
+    # bo "Niepoprawne parkowanie" zawiera fragment "poprawne parkowanie".
+    # Porównanie jest bez rozróżniania wielkości liter, więc wystarczy ta kolejność.
+    _LABEL_COLORS = (
+        ("niepoprawne parkowanie", (0, 0, 255)),     # czerwony (BGR)
+        ("poprawne parkowanie",    (0, 200, 0)),     # zielony
+        ("w ruchu",                (221, 83, 8)),    # niebieski (#0853DD w BGR)
     )
-    _DEFAULT_CLASS_ID = 2
+    _DEFAULT_COLOR = (0, 215, 255)                   # żółty/bursztynowy dla reszty
 
-    def __init__(self):
-        self.box_annotator = sv.BoxAnnotator(
-            color=self._PALETTE,
-            thickness=2,
-            color_lookup=sv.ColorLookup.CLASS,
-        )
-        self.label_annotator = sv.LabelAnnotator(
-            text_color=self._PALETTE,
-            text_scale=0.6,
-            text_thickness=2,
-            color_lookup=sv.ColorLookup.CLASS,
-        )
+    def __init__(self, thickness: int = 2, text_scale: float = 0.6, text_thickness: int = 2):
+        self.thickness = thickness
+        self.text_scale = text_scale
+        self.text_thickness = text_thickness
 
-    def _classify(self, labels, n: int) -> np.ndarray:
-        """Zwraca class_id o długości n; przy braku/niezgodności – same 'inne'."""
-        if labels is None or len(labels) != n:
-            return np.full(n, self._DEFAULT_CLASS_ID, dtype=int)
-        ids = np.empty(n, dtype=int)
-        for i, label in enumerate(labels):
-            if label is None:
-                ids[i] = self._DEFAULT_CLASS_ID
-                continue
-            for fragment, cid in self._LABEL_TO_CLASS:
-                if fragment in label:
-                    ids[i] = cid
-                    break
-            else:
-                ids[i] = self._DEFAULT_CLASS_ID
-        return ids
+    def _color_for(self, label):
+        if not label:
+            return self._DEFAULT_COLOR
+        low = label.lower()
+        for fragment, color in self._LABEL_COLORS:
+            if fragment in low:
+                return color
+        return self._DEFAULT_COLOR
+
+    @staticmethod
+    def _text_color(bg):
+        # czarny tekst na jasnym tle, biały na ciemnym (luminancja BGR)
+        b, g, r = bg
+        return (0, 0, 0) if (0.114 * b + 0.587 * g + 0.299 * r) > 150 else (255, 255, 255)
 
     def annotate(self, frame, detections, labels=None):
-        det = sv.Detections(
-            xyxy=detections.xyxy,
-            mask=detections.mask,
-            confidence=detections.confidence,
-            class_id=self._classify(labels, len(detections)),
-            tracker_id=detections.tracker_id,
-            data=detections.data,
-        )
         if detections is None or len(detections) == 0:
             return frame
 
-        det.class_id = self._classify(labels, len(det))
-
         out = frame.copy()
-        out = self.box_annotator.annotate(scene=out, detections=det)
-        if labels is not None and len(labels) == len(det):
-            out = self.label_annotator.annotate(
-                scene=out, detections=det, labels=labels
+        h, w = out.shape[:2]
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        use_labels = labels is not None and len(labels) == len(detections)
+
+        for i, box in enumerate(detections.xyxy):
+            label = labels[i] if use_labels else None
+            color = self._color_for(label)
+
+            x1, y1, x2, y2 = (int(v) for v in box)
+            cv2.rectangle(out, (x1, y1), (x2, y2), color, self.thickness)
+
+            if not label:
+                continue
+
+            (tw, th), baseline = cv2.getTextSize(label, font, self.text_scale, self.text_thickness)
+            pad = 4
+            # etykieta nad ramką; jeśli brakuje miejsca u góry, pod górną krawędzią
+            top = y1 - th - baseline - 2 * pad
+            if top < 0:
+                top = y1
+            bottom = top + th + baseline + 2 * pad
+            right = min(x1 + tw + 2 * pad, w)
+
+            cv2.rectangle(out, (x1, top), (right, bottom), color, -1)
+            cv2.putText(
+                out, label, (x1 + pad, bottom - baseline - pad),
+                font, self.text_scale, self._text_color(color),
+                self.text_thickness, cv2.LINE_AA,
             )
         return out
+
+
+class PredictionAnnotator(BaseAnnotator):
+    """Rysuje tylko zielone linie przewidywanej trajektorii."""
+    def __init__(self, thickness: int = 2):
+        self.color_bgr = (0, 255, 0)   # OpenCV używa BGR: zielony
+        self.thickness = thickness
+
+    def annotate(self, frame, trajectories, detections=None, labels=None):
+        """
+        trajectories: dict {track_id: ndarray (N, 2)} z Predictions.trajectories
+        detections:   opcjonalnie sv.Detections z trackera. Gdy podane, linia
+                      zaczyna się w środku aktualnego boxa danego obiektu.
+        """
+        if not trajectories:
+            return frame
+
+        # aktualne środki obiektów (początek linii)
+        starts = {}
+        if detections is not None and detections.tracker_id is not None:
+            for box, tid in zip(detections.xyxy, detections.tracker_id):
+                starts[int(tid)] = np.array(
+                    [(box[0] + box[2]) / 2.0, (box[1] + box[3]) / 2.0]
+                )
+
+        h, w = frame.shape[:2]
+        for tid, pts in trajectories.items():
+            if pts is None or len(pts) == 0:
+                continue
+            pts = np.asarray(pts, dtype=np.float32)
+            if tid in starts:
+                pts = np.vstack([starts[tid], pts])
+            if len(pts) < 2:
+                continue
+
+            # ograniczenie do obrazu, żeby cv2 nie dostał wartości spoza int32
+            pts[:, 0] = np.clip(pts[:, 0], -w, 2 * w)
+            pts[:, 1] = np.clip(pts[:, 1], -h, 2 * h)
+
+            cv2.polylines(
+                frame,
+                [pts.astype(np.int32).reshape(-1, 1, 2)],
+                isClosed=False,
+                color=self.color_bgr,
+                thickness=self.thickness,
+                lineType=cv2.LINE_AA,
+            )
+        return frame

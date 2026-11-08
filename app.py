@@ -32,7 +32,7 @@ def main():
     frame_processor = FrameProcessor(yolo_detections, rf_detections, tracking, predictions, park_validator)
     video = Video()
     
-    controller = AppController(view, video, rf_detections, yolo_detections, tracking, frame_processor)
+    controller = AppController(view, video, rf_detections, yolo_detections, tracking, predictions, frame_processor)
 
     app.aboutToQuit.connect(controller.shutdown)
     view.show()

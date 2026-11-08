@@ -6,7 +6,10 @@ from PyQt5.QtWidgets import (
 
 from PyQt5.QtCore import pyqtSignal, QEvent, Qt, QPoint, QSize
 from .styles import (SCROLL_BAR_STYLE, SLIDER_STYLE)
-from .components import (create_widget_list, create_slider, create_model_widget, create_visualization_options, create_track_widget, CustomRowWidget)
+from .components import (create_widget_list, create_slider,
+                        create_model_widget, create_visualization_options,
+                        create_track_widget, create_prediction_widget,
+                        CustomRowWidget)
 
 from PyQt5.QtGui import QImage, QPixmap, QCursor
 import cv2
@@ -20,8 +23,8 @@ class VideoWindowUI(QMainWindow):
          self.checkbox_car_detection, 
          self.checkbox_park_detection, 
          self.checkbox_tracking,
-         self.checkbox_validator
-         ) = create_visualization_options()
+         self.checkbox_validator,
+         self.checkbox_prediction) = create_visualization_options()
 
         self.model_det_park_spot = create_widget_list()
         self.model_det_cars = create_widget_list()
@@ -36,6 +39,7 @@ class VideoWindowUI(QMainWindow):
         self.model_det_cars.setObjectName("StandardList")
         self.rf_model_det_cars.setObjectName("StandardList")
         self.rf_model_det_park_spot.setObjectName("StandardList")
+        self.pred_alg_list.setObjectName("StandardList")
 
         self.video_source_text = QLineEdit()
         self.video_label = VideoLabel("Podaj źródło video...")
@@ -117,11 +121,8 @@ class VideoWindowUI(QMainWindow):
                                             )
         models_content_layout.addWidget(track_widget)
 
-        self.slider_pred, self.pred_val_label= create_slider()
-        predict_widget = create_model_widget("algorytmy predykcji ruchu obiektow",
+        predict_widget = create_prediction_widget("algorytmy predykcji ruchu obiektow",
                                             self.pred_alg_list,
-                                            self.slider_pred,
-                                            self.pred_val_label,
                                             )
         models_content_layout.addWidget(predict_widget)
 
@@ -206,7 +207,7 @@ class VideoWindowUI(QMainWindow):
         for alg in algs:
             item = QListWidgetItem(alg)
             self.pred_alg_list.addItem(item)
-            print(f'załadowano {item}')
+            print(f'załadowano {item.text()}')
 
 
 

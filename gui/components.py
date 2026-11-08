@@ -57,6 +57,24 @@ def create_model_widget(text: str, widget_model_list: QListWidget, slider: QSlid
 
   return model_widget
 
+def create_prediction_widget(text: str, widget_model_list: QListWidget):
+  model_widget = QWidget() # glowny kontener danych modeli na widgety
+  model_widget.setMinimumSize(250,300)
+  model_widget.setStyleSheet('background-color: #37393b; border-radius: 10px')
+
+  model_layout = QVBoxLayout() # sposob ukladania elementow w kontenerze modeli
+  model_widget.setLayout(model_layout)
+  model_layout.setContentsMargins(10, 8, 10, 8) 
+  model_layout.addSpacing(10)
+  model_layout.setAlignment(Qt.AlignTop)
+
+  model_text = QLabel(text)
+  model_text.setStyleSheet('color: white; font-size: 12pt;')
+  model_layout.addWidget(model_text)
+
+  model_layout.addWidget(widget_model_list)
+
+  return model_widget
 
 def create_track_widget(text: str, widget_model_list: QListWidget):
   model_widget = QWidget() # glowny kontener danych modeli na widgety
@@ -243,17 +261,20 @@ def create_visualization_options():
     checkbox_park_detection = QCheckBox("Detekcja miejsc parkingowych", options_container)
     checkbox_tracking = QCheckBox("Tracking", options_container)
     checkbox_validator = QCheckBox("walidacja parkowania", options_container)
-    
+    checkbox_prediction = QCheckBox("predykcja ruchu", options_container)
+
     checkbox_validator.setChecked(False)
     checkbox_car_detection.setChecked(False)
     checkbox_park_detection.setChecked(False)
     checkbox_tracking.setChecked(False)
+    checkbox_prediction.setChecked(False)
 
     for checkbox in (
         checkbox_car_detection,
         checkbox_park_detection,
         checkbox_tracking,
-        checkbox_validator
+        checkbox_validator,
+        checkbox_prediction
     ):
         checkbox.setStyleSheet(CHECKBOX_STYLE)
         options_layout.addWidget(checkbox)
@@ -263,7 +284,8 @@ def create_visualization_options():
         checkbox_car_detection,
         checkbox_park_detection,
         checkbox_tracking,
-        checkbox_validator
+        checkbox_validator,
+        checkbox_prediction
     )
 
 class SelectableListWidget(QListWidget):
