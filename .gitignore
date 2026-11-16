@@ -1,11 +1,10 @@
 __pycache__
 .venv/
 .venv copy/
-.test_detrack/
-.test_detrack/DETRAC-Images/DETRAC-Images/
-.test_park_photos/
-.test_park_valid_video/
+test_detrack/
 backend/detections/rf_api_key.py
 runs
 video
 models
+test_park_valid_video/
+test_park_photos/
