@@ -1,10 +1,13 @@
 __pycache__
 .venv/
 .venv copy/
-test_detrack/
+DETRACK_data_test
 backend/detections/rf_api_key.py
+eval_park_validator
+eval_parking_detector
 runs
 video
 models
 test_park_valid_video/
 test_park_photos/
+validate_park_det

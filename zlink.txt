@@ -3,4 +3,5 @@ D:\studia_main\7_inzynierka\main_app\video\v2.mp4
 D:\studia_main\7_inzynierka\main_app\video\street.mp4
 
 D:\studia_main\7_inzynierka\main_app\video\road.mp4
-https://s1.worldcam.live:8082/aleksandrow-lodzki-dmowskiego-konstantynowska/index.m3u8?token=694605af5649d2269d62a919cc51f612789507ef576ee724dbd7b30e22e0a048
+
+D:\studia_main\7_inzynierka\main_app\video\cam_v1_10fps.mp4
