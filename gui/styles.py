@@ -148,7 +148,7 @@ SLIDER_STYLE = """
     QSlider::handle:horizontal:pressed {
         background: #005999;
     }
-    
+
     /* Część toru już "zaliczona" (opcjonalnie - podświetlenie lewej strony) */
     QSlider::sub-page:horizontal {
         background: #007acc;
@@ -200,3 +200,78 @@ CHECKBOX_STYLE = """
     }
 """
 
+
+# Pasek z przyciskami pod obrazem wideo
+VIDEO_TOOLBAR_STYLE = """
+    QFrame#video_toolbar {
+        background-color: #2b2c30;
+        border: 1px solid #45484a;
+        border-radius: 10px;
+    }
+"""
+
+# Przyciski sterowania wideo (Play/Pauza, Stop, przewijanie)
+VIDEO_BUTTON_STYLE = """
+    QPushButton {
+        background-color: #37393b;
+        color: #ffffff;
+        border: 1px solid #55585b;
+        border-radius: 8px;
+        padding: 8px 18px;
+        font-size: 11pt;
+        font-weight: bold;
+        min-width: 100px;
+        min-height: 22px;
+    }
+    QPushButton:hover {
+        background-color: #45484a;
+        border: 1px solid #007acc;
+    }
+    QPushButton:pressed {
+        background-color: #005999;
+        border: 1px solid #005999;
+    }
+    QPushButton:disabled {
+        background-color: #2b2c30;
+        color: #66696d;
+        border: 1px solid #3a3c40;
+    }
+
+    /* Główny przycisk Play/Pauza – wyróżniony kolorem akcentu */
+    QPushButton#PrimaryVideoButton {
+        background-color: #007acc;
+        border: 1px solid #007acc;
+    }
+    QPushButton#PrimaryVideoButton:hover {
+        background-color: #008ee6;
+        border: 1px solid #33a7f0;
+    }
+    QPushButton#PrimaryVideoButton:pressed {
+        background-color: #005999;
+    }
+
+    /* Stop – czerwone podświetlenie po najechaniu */
+    QPushButton#StopVideoButton:hover {
+        background-color: #4a2f2f;
+        border: 1px solid #d9534f;
+    }
+    QPushButton#StopVideoButton:pressed {
+        background-color: #7a2f2c;
+    }
+    QPushButton#StopVideoButton:disabled {
+        background-color: #2b2c30;
+        color: #66696d;
+        border: 1px solid #3a3c40;
+    }
+"""
+
+# Etykieta z czasem odtwarzania
+VIDEO_TIME_LABEL_STYLE = """
+    QLabel {
+        color: #d0d3d7;
+        background-color: transparent;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 11pt;
+        padding: 0px 8px;
+    }
+"""

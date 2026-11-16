@@ -1,11 +1,13 @@
 # ./gui/main_window.py
 from PyQt5.QtWidgets import (
     QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame, QScrollArea,
-    QPushButton, QLabel, QToolTip, QCheckBox, QLineEdit, QListWidgetItem, QListWidget, 
+    QPushButton, QLabel, QToolTip, QCheckBox, QLineEdit, QListWidgetItem, QListWidget,
+    QSizePolicy,
 )
 
 from PyQt5.QtCore import pyqtSignal, QEvent, Qt, QPoint, QSize
-from .styles import (SCROLL_BAR_STYLE, SLIDER_STYLE)
+from .styles import (SCROLL_BAR_STYLE, SLIDER_STYLE, VIDEO_BUTTON_STYLE,
+                     VIDEO_TOOLBAR_STYLE, VIDEO_TIME_LABEL_STYLE)
 from .components import (create_widget_list, create_slider,
                         create_model_widget, create_visualization_options,
                         create_track_widget, create_prediction_widget,
@@ -17,6 +19,14 @@ import cv2
 
 class VideoWindowUI(QMainWindow):
     tracker_params_changed = pyqtSignal(str, dict)
+
+    VIDEO_PLACEHOLDER = "Podaj źródło video..."
+    SEEK_STEP_S = 5
+
+    TXT_PLAY = "▶  Odtwórz"
+    TXT_PAUSE = "❚❚  Pauza"
+    TXT_STOP = "■  Stop"
+
     def __init__(self):
         super().__init__()
         (self.options_container, 
@@ -42,7 +52,9 @@ class VideoWindowUI(QMainWindow):
         self.pred_alg_list.setObjectName("StandardList")
 
         self.video_source_text = QLineEdit()
-        self.video_label = VideoLabel("Podaj źródło video...")
+        self.video_label = VideoLabel(self.VIDEO_PLACEHOLDER)
+        # po Stop ignorujemy klatki, które jeszcze "wiszą" w kolejce
+        self._frames_enabled = True
 
         self.setWindowTitle("project")
         self.resize(1500, 700)
@@ -134,34 +146,86 @@ class VideoWindowUI(QMainWindow):
         main_video_workspace_widget = QWidget()
         main_video_workspace_layout = QVBoxLayout()
         main_video_workspace_widget.setLayout(main_video_workspace_layout)
-        video_toolbar = QHBoxLayout()
 
         self.video_source_text.setPlaceholderText('podaj źródło obrazu')
         self.video_source_text.setStyleSheet("background:white; color:black;")
         self.video_source_text.returnPressed.connect(self.get_source_vid)
         main_video_workspace_layout.addWidget(self.video_source_text)
 
-        self.btn_open = QPushButton("Play")
-        video_toolbar.addWidget(self.btn_open)
+        # Pasek sterowania: [« -5 s] [▶ Odtwórz] [■ Stop] [+5 s »] ...... [00:00 / 00:00]
+        toolbar_frame = QFrame()
+        toolbar_frame.setObjectName("video_toolbar")
+        toolbar_frame.setStyleSheet(VIDEO_TOOLBAR_STYLE)
+        video_toolbar = QHBoxLayout(toolbar_frame)
+        video_toolbar.setContentsMargins(12, 8, 12, 8)
+        video_toolbar.setSpacing(10)
 
-        self.btn_play = QPushButton("Stop")
-        video_toolbar.addWidget(self.btn_play)
+        self.btn_backward = QPushButton(f"«  -{self.SEEK_STEP_S} s")
+        self.btn_backward.setToolTip(f"Cofnij o {self.SEEK_STEP_S} s")
 
-        self.btn_forward = QPushButton("Forward")
-        video_toolbar.addWidget(self.btn_forward)
+        self.btn_play = QPushButton(self.TXT_PLAY)
+        self.btn_play.setObjectName("PrimaryVideoButton")
+        self.btn_play.setToolTip("Odtwórz / wstrzymaj")
 
-        self.btn_backward = QPushButton("Backward")
-        video_toolbar.addWidget(self.btn_backward)
+        self.btn_stop = QPushButton(self.TXT_STOP)
+        self.btn_stop.setObjectName("StopVideoButton")
+        self.btn_stop.setToolTip("Zatrzymaj odtwarzanie")
+
+        self.btn_forward = QPushButton(f"+{self.SEEK_STEP_S} s  »")
+        self.btn_forward.setToolTip(f"Przewiń o {self.SEEK_STEP_S} s")
+
+        self.time_label = QLabel("--:-- / --:--")
+        self.time_label.setStyleSheet(VIDEO_TIME_LABEL_STYLE)
+        self.time_label.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
+
+        video_toolbar.addStretch()
+        for btn in (self.btn_backward, self.btn_play, self.btn_stop, self.btn_forward):
+            btn.setStyleSheet(VIDEO_BUTTON_STYLE)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setFocusPolicy(Qt.NoFocus)
+            video_toolbar.addWidget(btn)
+        video_toolbar.addStretch()
+        video_toolbar.addWidget(self.time_label)
 
         # Ekran wideo
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_label.setStyleSheet("background:black; color:white;")
         self.video_label.setMinimumSize(800, 500)
 
-        main_video_workspace_layout.addWidget(self.video_label)
-        main_video_workspace_layout.addLayout(video_toolbar)
-        
+        # pasek przycisków: wysokość tylko taka, jakiej potrzebują przyciski
+        toolbar_frame.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        # wideo: zajmuje całą resztę miejsca; Ignored sprawia, że pixmapa
+        # nie "rozpycha" layoutu przy każdej klatce
+        self.video_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+
+        main_video_workspace_layout.addWidget(self.video_label, 1)
+        main_video_workspace_layout.addWidget(toolbar_frame, 0)
+
+        self.set_playback_state(False, False, False)
+
         return main_video_workspace_widget
+
+    ## stan przycisków odtwarzania
+    def set_playback_state(self, running: bool, paused: bool, seekable: bool):
+        self.btn_play.setText(self.TXT_PAUSE if running and not paused else self.TXT_PLAY)
+        self.btn_stop.setEnabled(running)
+        self.btn_forward.setEnabled(running and seekable)
+        self.btn_backward.setEnabled(running and seekable)
+        if not running:
+            self.time_label.setText("--:-- / --:--")
+        elif not seekable:
+            self.time_label.setText("● NA ŻYWO")
+
+    def update_position(self, position_s: float, duration_s: float):
+        self.time_label.setText(f"{_fmt_time(position_s)} / {_fmt_time(duration_s)}")
+
+    def clear_video(self):
+        self._frames_enabled = False
+        self.video_label.clear()
+        self.video_label.setText(self.VIDEO_PLACEHOLDER)
+
+    def enable_frames(self):
+        self._frames_enabled = True
 
 
     def populate_models_det_park_spot(self, file_paths: list[str]):
@@ -222,7 +286,7 @@ class VideoWindowUI(QMainWindow):
         return self.video_label.width(), self.video_label.height()
 
     def display_frame(self, frame):
-        if frame is None:
+        if frame is None or not self._frames_enabled:
             return
 
         rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -273,6 +337,13 @@ class VideoWindowUI(QMainWindow):
         
         # Poprawne wywołanie dymku systemowego PyQt
         QToolTip.showText(cursor_pos, f"Próg: {value}", self)
+
+def _fmt_time(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
+
 
 class VideoLabel(QLabel):
     size_changed = pyqtSignal(int, int)

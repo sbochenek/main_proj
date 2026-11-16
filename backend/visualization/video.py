@@ -29,6 +29,11 @@ def _is_hls_url(source) -> bool:
     return parsed.scheme in ("http", "https") and parsed.path.lower().endswith(".m3u8")
 
 
+def _is_seekable_source(source) -> bool:
+    """Przewijać da się tylko lokalne pliki (strumienie na żywo i kamery – nie)."""
+    return isinstance(source, str) and os.path.isfile(source)
+
+
 def _download_text(url: str, timeout: float = 10.0) -> str:
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -106,6 +111,11 @@ class Video(QThread):
     frame_ready = pyqtSignal(object)
     error_occurred = pyqtSignal(str)
 
+    # (czy działa, czy wstrzymane, czy można przewijać)
+    playback_state_changed = pyqtSignal(bool, bool, bool)
+    # (aktualna pozycja [s], długość [s]) – tylko dla źródeł z przewijaniem
+    position_changed = pyqtSignal(float, float)
+
     def __init__(self):
         super().__init__()
         self.width = 1280
@@ -120,11 +130,50 @@ class Video(QThread):
         self.source_fps = 0.0
         self.pace_to_source_fps = True
 
+        # Sterowanie odtwarzaniem (ustawiane z wątku GUI, czytane w run())
+        self._paused = False
+        self._step_once = False          # pokaż jedną klatkę mimo pauzy (po przewinięciu)
+        self._at_end = False             # plik doszedł do końca
+        self.seekable = False
+        self.total_frames = 0
+        self._seek_lock = threading.Lock()
+        self._pending_seek_rel = 0.0     # przesunięcie względne [s]
+        self._pending_seek_abs = None    # pozycja bezwzględna [s]
+
         # Synchronizacja Video z FrameProcessor
         self._frame_processed = threading.Event()
 
         # Początkowo Video nie musi czekać
         self._frame_processed.set()
+
+    # ---------- API sterowania (wywoływane z wątku GUI) ----------
+
+    @property
+    def is_paused(self) -> bool:
+        return self._paused
+
+    def set_paused(self, paused: bool):
+        if not self.isRunning():
+            return
+        if not paused and self._at_end:
+            # wznowienie po dojściu do końca pliku = odtwarzanie od początku
+            with self._seek_lock:
+                self._pending_seek_abs = 0.0
+                self._pending_seek_rel = 0.0
+        self._paused = paused
+        self.playback_state_changed.emit(True, paused, self.seekable)
+
+    def toggle_pause(self):
+        self.set_paused(not self._paused)
+
+    def seek(self, seconds: float):
+        """Przewinięcie o `seconds` sekund (ujemne = do tyłu)."""
+        if not self.isRunning() or not self.seekable:
+            return
+        with self._seek_lock:
+            self._pending_seek_rel += seconds
+
+    # -------------------------------------------------------------
 
     def resize_video_to_dimensions(self, width: int, height: int) -> None:
         self.width = width
@@ -137,7 +186,28 @@ class Video(QThread):
 
         self.source = source
         return True
-    
+
+    def _apply_pending_seek(self, fps: float) -> bool:
+        with self._seek_lock:
+            rel = self._pending_seek_rel
+            abs_pos = self._pending_seek_abs
+            self._pending_seek_rel = 0.0
+            self._pending_seek_abs = None
+
+        if not self.seekable or (rel == 0.0 and abs_pos is None):
+            return False
+
+        if abs_pos is not None:
+            target = abs_pos * fps
+        else:
+            current = self.cap.get(cv2.CAP_PROP_POS_FRAMES)
+            target = current + rel * fps
+
+        target = int(max(0, min(target, self.total_frames - 1)))
+        self.cap.set(cv2.CAP_PROP_POS_FRAMES, target)
+        self._at_end = False
+        return True
+
     def run(self):
 
         if self.source is None:
@@ -145,6 +215,13 @@ class Video(QThread):
             return
 
         self._is_running = True
+        self._paused = False
+        self._step_once = False
+        self._at_end = False
+        self.seekable = False
+        with self._seek_lock:
+            self._pending_seek_rel = 0.0
+            self._pending_seek_abs = None
 
         try:
             # Otwarcie źródła w wątku Video
@@ -169,23 +246,49 @@ class Video(QThread):
             frame_interval = 1.0 / fps
             next_frame_time = time.perf_counter()
 
+            frame_count = self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
+            self.total_frames = int(frame_count) if frame_count and frame_count > 0 else 0
+            self.seekable = _is_seekable_source(self.source) and self.total_frames > 0
+            duration = self.total_frames / fps if self.seekable else 0.0
+
+            self.playback_state_changed.emit(True, False, self.seekable)
+
             print(f"fps zrodla: {self.source_fps}")
             meas_start = time.perf_counter()
             meas_count = 0
             fail_count = 0
             while self._is_running:
+
+                # Przewijanie
+                if self._apply_pending_seek(fps):
+                    next_frame_time = time.perf_counter()
+                    if self._paused:
+                        self._step_once = True     # pokaż klatkę z nowej pozycji
+
+                # Pauza
+                if self._paused and not self._step_once:
+                    time.sleep(0.02)
+                    next_frame_time = time.perf_counter()
+                    meas_start, meas_count = time.perf_counter(), 0
+                    continue
+                stepping = self._step_once
+                self._step_once = False
+
                 ret, frame = self.cap.read()
                 if not ret:
                     if _is_hls_url(self.source) and fail_count < 20:   # strumień na żywo: ponów
                         fail_count += 1
                         time.sleep(0.25)
                         continue
+                    if self.seekable:
+                        # koniec pliku: zatrzymaj się na pauzie, żeby można było przewinąć
+                        self._at_end = True
+                        self._paused = True
+                        self.playback_state_changed.emit(True, True, self.seekable)
+                        continue
                     break
                 fail_count = 0
 
-                
-                if not ret:
-                    break
                 meas_count += 1
                 elapsed = time.perf_counter() - meas_start
                 if elapsed >= 5.0:
@@ -200,7 +303,7 @@ class Video(QThread):
 
                 # Przygotowanie oczekiwania na zakończenie
                 # przetwarzania aktualnej klatki
-                if self.pace_to_source_fps:
+                if self.pace_to_source_fps and not stepping:
                     now = time.perf_counter()
                     wait = next_frame_time - now
                     if wait < -1.0:                 # jesteśmy spóźnieni o ponad sekundę
@@ -219,6 +322,10 @@ class Video(QThread):
                 # Przekazanie surowej klatki
                 self.frame_ready.emit(frame)
 
+                if self.seekable:
+                    pos = self.cap.get(cv2.CAP_PROP_POS_FRAMES)
+                    self.position_changed.emit(pos / fps, duration)
+
                 # Oczekiwanie na zakończenie analizy
                 while self._is_running:
 
@@ -230,10 +337,13 @@ class Video(QThread):
 
         finally:
             self._is_running = False
+            self._paused = False
 
             if self.cap is not None:
                 self.cap.release()
                 self.cap = None
+
+            self.playback_state_changed.emit(False, False, False)
 
     def processing_finished(self):
         """
@@ -251,5 +361,3 @@ class Video(QThread):
 
         if self.isRunning():
             self.wait()
-
-

@@ -66,6 +66,17 @@ class AppController:
         self._view.video_label.size_changed.connect(self.handle_video_screen_reseize) 
         self._view.video_source_text.returnPressed.connect(self.handle_video_source_change)
 
+        # przyciski sterowania wideo
+        self._view.btn_play.clicked.connect(self.handle_play_pause)
+        self._view.btn_stop.clicked.connect(self.handle_stop)
+        self._view.btn_forward.clicked.connect(lambda: self.handle_seek(self._view.SEEK_STEP_S))
+        self._view.btn_backward.clicked.connect(lambda: self.handle_seek(-self._view.SEEK_STEP_S))
+
+        # Video -> GUI: stan odtwarzania i pozycja (Video żyje w wątku GUI,
+        # a emituje z run(), więc połączenia są automatycznie kolejkowane)
+        self._video.playback_state_changed.connect(self._view.set_playback_state)
+        self._video.position_changed.connect(self._view.update_position)
+
         # zmiany modeli
         self._view.model_det_park_spot.itemClicked.connect(lambda item: self.handle_model_change(ModelType.DET_PARK_SPOT, item))
         self._view.model_det_cars.itemClicked.connect(lambda item: self.handle_model_change(ModelType.DET_CAR, item))
@@ -128,8 +139,34 @@ class AppController:
             return
 
         if self._video.change_video_source(source_text):
+            self._reset_tracking_state()
+            self._view.enable_frames()
             self._video.start()
-    
+
+    ## przyciski sterowania wideo
+    def handle_play_pause(self):
+        if self._video.isRunning():
+            self._video.toggle_pause()
+        else:
+            # nic nie gra – uruchom źródło wpisane w polu tekstowym
+            self.handle_video_source_change()
+
+    def handle_stop(self):
+        self._video.stop()
+        self._view.clear_video()
+        self._reset_tracking_state()
+
+    def handle_seek(self, seconds: float):
+        if not (self._video.isRunning() and self._video.seekable):
+            return
+        self._video.seek(seconds)
+        # skok w czasie psuje ślady i historię trajektorii
+        self._reset_tracking_state()
+
+    def _reset_tracking_state(self):
+        self._frame_processor.tracker_annotator.reset_traces()
+        self._prediction.reset()
+
 
     def handle_video_screen_reseize(self, width, heigh):
         self._video.resize_video_to_dimensions(width, heigh)
