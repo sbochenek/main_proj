@@ -1,9 +1,0 @@
-bug przerwanie video po zmianie modelu
-
-implementacja algorytmow predykcji
-obsluga video
-pobieranie video z innych zrodel
-
-self.overlap_threshold = overlap_threshold
-self.movement_threshold = movement_threshold
-dodac zmiany z gui
