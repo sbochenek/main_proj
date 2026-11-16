@@ -29,16 +29,16 @@ class VideoWindowUI(QMainWindow):
         self.model_det_park_spot = create_widget_list()
         self.model_det_cars = create_widget_list()
 
-        self.rf_model_det_park_spot = create_widget_list()
-        self.rf_model_det_cars = create_widget_list()
+        # self.rf_model_det_park_spot = create_widget_list()
+        # self.rf_model_det_cars = create_widget_list()
 
         self.track_alg_list = create_widget_list()
         self.pred_alg_list = create_widget_list()
 
         self.model_det_park_spot.setObjectName("StandardList")
         self.model_det_cars.setObjectName("StandardList")
-        self.rf_model_det_cars.setObjectName("StandardList")
-        self.rf_model_det_park_spot.setObjectName("StandardList")
+        # self.rf_model_det_cars.setObjectName("StandardList")
+        # self.rf_model_det_park_spot.setObjectName("StandardList")
         self.pred_alg_list.setObjectName("StandardList")
 
         self.video_source_text = QLineEdit()
@@ -101,20 +101,20 @@ class VideoWindowUI(QMainWindow):
         models_content_layout.addWidget(widget_det_cars)
         models_content_layout.addWidget(widget_det_park_spot)
 
-        self.rf_slider_det_park_spot, self.rf_park_val_label = create_slider()
-        self.rf_slider_det_cars, self.rf_cars_val_label = create_slider()
-        widget_rf_det_park_spot = create_model_widget("modele roboflow detekcji miejsc parkingowych",
-                                                        self.rf_model_det_park_spot,
-                                                        self.rf_slider_det_park_spot,
-                                                        self.rf_park_val_label
-                                                        )
-        widget_rf_det_cars = create_model_widget("modele roboflow detekcji pojazdów",
-                                                  self.rf_model_det_cars,
-                                                  self.rf_slider_det_cars,
-                                                  self.rf_cars_val_label
-                                                  )
-        models_content_layout.addWidget(widget_rf_det_park_spot)
-        models_content_layout.addWidget(widget_rf_det_cars)
+        # self.rf_slider_det_park_spot, self.rf_park_val_label = create_slider()
+        # self.rf_slider_det_cars, self.rf_cars_val_label = create_slider()
+        # widget_rf_det_park_spot = create_model_widget("modele roboflow detekcji miejsc parkingowych",
+        #                                                 self.rf_model_det_park_spot,
+        #                                                 self.rf_slider_det_park_spot,
+        #                                                 self.rf_park_val_label
+        #                                                 )
+        # widget_rf_det_cars = create_model_widget("modele roboflow detekcji pojazdów",
+        #                                           self.rf_model_det_cars,
+        #                                           self.rf_slider_det_cars,
+        #                                           self.rf_cars_val_label
+        #                                           )
+        # models_content_layout.addWidget(widget_rf_det_park_spot)
+        # models_content_layout.addWidget(widget_rf_det_cars)
 
         track_widget = create_track_widget("algorytmy śledzenia obiektow",
                                             self.track_alg_list
@@ -176,17 +176,17 @@ class VideoWindowUI(QMainWindow):
             self.model_det_cars.addItem(item)
             print(f'załadowano {item}')
 
-    def populate_rf_models_det_park_spot(self, file_paths: list[str]):
-        for path in file_paths:
-            item = QListWidgetItem(path)
-            self.rf_model_det_park_spot.addItem(item)
-            print(f'załadowano {item}')
+    # def populate_rf_models_det_park_spot(self, file_paths: list[str]):
+    #     for path in file_paths:
+    #         item = QListWidgetItem(path)
+    #         self.rf_model_det_park_spot.addItem(item)
+    #         print(f'załadowano {item}')
 
-    def populate_rf_models_det_cars(self, file_paths: list[str]):
-        for path in file_paths:
-            item = QListWidgetItem(path)
-            self.rf_model_det_cars.addItem(item)
-            print(f'załadowano {item}')
+    # def populate_rf_models_det_cars(self, file_paths: list[str]):
+    #     for path in file_paths:
+    #         item = QListWidgetItem(path)
+    #         self.rf_model_det_cars.addItem(item)
+    #         print(f'załadowano {item}')
 
 
     def populate_track_algs(self, algs, get_config):

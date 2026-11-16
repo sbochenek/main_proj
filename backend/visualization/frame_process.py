@@ -16,7 +16,7 @@ class FrameProcessor(QObject):
 
     visualization_options_changed = pyqtSignal(bool, bool, bool, bool, bool)
 
-    def __init__(self, yolo_detection, rf_detections, tracking, predictions, park_validator):
+    def __init__(self, yolo_detection, tracking, predictions, park_validator, rf_detections=None):
         super().__init__()
         self.yolo_det_annotator = CarDetectionAnnotator()
         self.rf_det_annotator = CarDetectionAnnotator()
@@ -69,14 +69,14 @@ class FrameProcessor(QObject):
                                                 car_detection_results.confidence)
                     ]
             # Detekcja pojazdow roboflow
-            elif self.rf_detections.car_det_loaded:
-                result = self.rf_detections.detect_cars(frame)
-                if result is not None:
-                    car_detection_results = sv.Detections(
-                        xyxy=result.xyxy,
-                        confidence=result.confidence,
-                        class_id=result.class_id
-                    )
+            # elif self.rf_detections.car_det_loaded:
+            #     result = self.rf_detections.detect_cars(frame)
+            #     if result is not None:
+            #         car_detection_results = sv.Detections(
+            #             xyxy=result.xyxy,
+            #             confidence=result.confidence,
+            #             class_id=result.class_id
+            #         )
 
             # detekcja miejsc parkingowych YOLO
             if self.yolo_detection.park_det_loaded:
@@ -90,21 +90,21 @@ class FrameProcessor(QObject):
                                                 park_detection_results.confidence)
                     ]
             # detekcja miejsc parkingowych ROBOFLOW
-            elif self.rf_detections.park_det_loaded:
-                result = self.rf_detections.detect_park_slot(frame)
-                park_detection_results = sv.Detections(
-                        xyxy=result.xyxy,
-                        confidence=result.confidence,
-                        class_id=result.class_id
-                        )
-                park_names = self.rf_detections.park_class_names
-                park_detection_labels = [
-                    f"{park_names[cls_id]} {conf:.2f}"
-                    for cls_id, conf in zip(
-                        park_detection_results.class_id,
-                        park_detection_results.confidence
-                    )
-                ]
+            # elif self.rf_detections.park_det_loaded:
+            #     result = self.rf_detections.detect_park_slot(frame)
+            #     park_detection_results = sv.Detections(
+            #             xyxy=result.xyxy,
+            #             confidence=result.confidence,
+            #             class_id=result.class_id
+            #             )
+            #     park_names = self.rf_detections.park_class_names
+            #     park_detection_labels = [
+            #         f"{park_names[cls_id]} {conf:.2f}"
+            #         for cls_id, conf in zip(
+            #             park_detection_results.class_id,
+            #             park_detection_results.confidence
+            #         )
+            #     ]
 
             # Tracking pojazdów
             if self.tracking.loaded_tracker:

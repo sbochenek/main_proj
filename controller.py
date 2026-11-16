@@ -3,7 +3,7 @@ from backend.detections.yolo_detection import ModelType
 from PyQt5.QtCore import QThread, Qt
 
 class AppController:
-    def __init__(self, view, video, rf_detections, yolo_detection, tracking, prediction ,frame_processor):
+    def __init__(self, view, video, yolo_detection, tracking, prediction ,frame_processor, rf_detections= None):
         self._view = view
         self._video = video
 
@@ -55,8 +55,8 @@ class AppController:
         # ladowanie modeli detekcji
         self._view.populate_models_det_park_spot(self._yolo_models.det_park_list)
         self._view.populate_models_det_cars(self._yolo_models.det_cars_list)
-        self._view.populate_rf_models_det_park_spot(self._rf_detections.det_park_list)
-        self._view.populate_rf_models_det_cars(self._rf_detections.det_cars_list)
+        # self._view.populate_rf_models_det_park_spot(self._rf_detections.det_park_list)
+        # self._view.populate_rf_models_det_cars(self._rf_detections.det_cars_list)
 
         # ladowanie trackerow 
         self._view.populate_track_algs(self._tracking.trackers,self._tracking.get_config,)
@@ -69,8 +69,8 @@ class AppController:
         # zmiany modeli
         self._view.model_det_park_spot.itemClicked.connect(lambda item: self.handle_model_change(ModelType.DET_PARK_SPOT, item))
         self._view.model_det_cars.itemClicked.connect(lambda item: self.handle_model_change(ModelType.DET_CAR, item))
-        self._view.rf_model_det_park_spot.itemClicked.connect(lambda item: self.handle_rf_model_change(ModelType.DET_PARK_SPOT, item))
-        self._view.rf_model_det_cars.itemClicked.connect(lambda item: self.handle_rf_model_change(ModelType.DET_CAR, item))
+        # self._view.rf_model_det_park_spot.itemClicked.connect(lambda item: self.handle_rf_model_change(ModelType.DET_PARK_SPOT, item))
+        # self._view.rf_model_det_cars.itemClicked.connect(lambda item: self.handle_rf_model_change(ModelType.DET_CAR, item))
 
         # zmiany trackera
         self._view.track_alg_list.itemClicked.connect(lambda item: self.handle_tracker_change(self._view.track_alg_list.itemWidget(item).text))
@@ -86,8 +86,8 @@ class AppController:
         # slidery
         self._view.slider_det_park_spot.sliderReleased.connect(lambda: self.handle_slider_release_park_det(self._view.slider_det_park_spot.value()))
         self._view.slider_det_cars.sliderReleased.connect(lambda: self.handle_slider_release_cars_det(self._view.slider_det_cars.value()))
-        self._view.rf_slider_det_park_spot.sliderReleased.connect(lambda: self.handle_slider_release_park_det(self._view.rf_slider_det_park_spot.value()))
-        self._view.rf_slider_det_cars.sliderReleased.connect(lambda: self.handle_slider_release_cars_det(self._view.rf_slider_det_cars.value()))
+        # self._view.rf_slider_det_park_spot.sliderReleased.connect(lambda: self.handle_slider_release_park_det(self._view.rf_slider_det_park_spot.value()))
+        # self._view.rf_slider_det_cars.sliderReleased.connect(lambda: self.handle_slider_release_cars_det(self._view.rf_slider_det_cars.value()))
         self.handle_visualization_change()
         
     def on_error(self, message):
@@ -147,16 +147,16 @@ class AppController:
     def handle_slider_release_cars_det(self, value):
         self._yolo_models.change_cars_thr(value/100)
 
-    def handle_rf_model_change(self, model_type, item):
-        print(f"[CONTROLLER] handle RF_MODELS change type: {model_type}, item: {item.text()}")
-        model_name = item.text()
-        self._rf_detections.set_active_model(model_type, model_name)
+    # def handle_rf_model_change(self, model_type, item):
+    #     print(f"[CONTROLLER] handle RF_MODELS change type: {model_type}, item: {item.text()}")
+    #     model_name = item.text()
+    #     self._rf_detections.set_active_model(model_type, model_name)
 
-    def handle_rf_slider_release_park_det(self, value):
-        self._rf_detections.change_park_thr(value/100)
+    # def handle_rf_slider_release_park_det(self, value):
+    #     self._rf_detections.change_park_thr(value/100)
 
-    def handle_rf_slider_release_cars_det(self, value):
-        self._rf_detections.change_cars_thr(value/100)
+    # def handle_rf_slider_release_cars_det(self, value):
+    #     self._rf_detections.change_cars_thr(value/100)
 
 
     def handle_tracker_change(self, tracker_text: str):
