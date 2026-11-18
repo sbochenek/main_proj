@@ -58,12 +58,12 @@ class AppController:
         # self._view.populate_rf_models_det_park_spot(self._rf_detections.det_park_list)
         # self._view.populate_rf_models_det_cars(self._rf_detections.det_cars_list)
 
-        # ladowanie trackerow 
+        # ladowanie trackerow
         self._view.populate_track_algs(self._tracking.trackers,self._tracking.get_config,)
         self._view.populate_pred_algs(self._prediction.predictors)
-        
+
         # rozmiar okna i wlaczeni video (enter)
-        self._view.video_label.size_changed.connect(self.handle_video_screen_reseize) 
+        self._view.video_label.size_changed.connect(self.handle_video_screen_reseize)
         self._view.video_source_text.returnPressed.connect(self.handle_video_source_change)
 
         # przyciski sterowania wideo
@@ -94,13 +94,17 @@ class AppController:
         self._view.checkbox_tracking.stateChanged.connect(self.handle_visualization_change)
         self._view.checkbox_validator.stateChanged.connect(self.handle_visualization_change)
         self._view.checkbox_prediction.stateChanged.connect(self.handle_visualization_change)
+
+        # opcjonalna detekcja pieszych (zmienia klasy zwracane przez model)
+        self._view.checkbox_pedestrians.stateChanged.connect(self.handle_pedestrians_change)
+
         # slidery
         self._view.slider_det_park_spot.sliderReleased.connect(lambda: self.handle_slider_release_park_det(self._view.slider_det_park_spot.value()))
         self._view.slider_det_cars.sliderReleased.connect(lambda: self.handle_slider_release_cars_det(self._view.slider_det_cars.value()))
         # self._view.rf_slider_det_park_spot.sliderReleased.connect(lambda: self.handle_slider_release_park_det(self._view.rf_slider_det_park_spot.value()))
         # self._view.rf_slider_det_cars.sliderReleased.connect(lambda: self.handle_slider_release_cars_det(self._view.rf_slider_det_cars.value()))
         self.handle_visualization_change()
-        
+
     def on_error(self, message):
         print(f"Błąd: {message}")
 
@@ -130,7 +134,7 @@ class AppController:
     def on_gui_loaded(self):
         initial_vid_size = self._view.get_video_size()
         self._video.resize_video_to_dimensions(initial_vid_size[0],initial_vid_size[1])
-    
+
     def handle_video_source_change(self):
         source_text = self._view.get_source_vid()
 
@@ -177,6 +181,11 @@ class AppController:
         print(f"[CONTROLLER] handle YOLO_MODELS change type: {model_type}, item: {item.text()}")
         model_name = item.text()
         self._yolo_models.set_active_model(model_type, model_name)
+
+    def handle_pedestrians_change(self, state):
+        enabled = state == Qt.Checked
+        print(f"[CONTROLLER] detekcja pieszych: {enabled}")
+        self._yolo_models.set_detect_pedestrians(enabled)
 
     def handle_slider_release_park_det(self, value):
         self._yolo_models.change_park_thr(value/100)

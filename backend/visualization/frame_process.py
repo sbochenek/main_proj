@@ -25,7 +25,7 @@ class FrameProcessor(QObject):
         # self.predictions_annotator = Annotator()
         self.validation_annotator = ValidationAnnotator()
         self.prediction_annotator = PredictionAnnotator()
-        
+
         self.draw_car_detection = False
         self.draw_park_detection = False
         self.draw_tracking = False
@@ -39,6 +39,12 @@ class FrameProcessor(QObject):
 
         self.visualization_options_changed.connect(self.set_visualization_options)
 
+    def _only_vehicles(self, detections):
+        """Zostawia same pojazdy – piesi nie są brani do walidacji parkowania."""
+        if detections is None or len(detections) == 0 or detections.class_id is None:
+            return detections
+        return detections[self.yolo_detection.vehicle_mask(detections.class_id)]
+
     @pyqtSlot(object)
     def process_frame(self, frame):
         car_detection_results = None
@@ -51,13 +57,13 @@ class FrameProcessor(QObject):
 
         track_detections = None
         track_labels = None
-        
+
         pred_detections, pred_labels = None, None
 
         validation_labels = None
         parked_cars_det_validation = None
         try:
-            # Detekcja pojazdow yolo
+            # Detekcja pojazdow yolo (tylko pojazdy + opcjonalnie piesi – filtr w YOLODetection)
             if self.yolo_detection.car_det_loaded:
                 results = self.yolo_detection.detect_cars(frame)
                 if results is not None:
@@ -106,18 +112,19 @@ class FrameProcessor(QObject):
             #         )
             #     ]
 
-            # Tracking pojazdów
+            # Tracking pojazdów (i pieszych, jeśli są wykrywani)
             if self.tracking.loaded_tracker:
                 track_detections, track_labels = self.tracking.track_cars(car_detection_results, car_names, frame)
 
-            # walidacja parkowania
+            # walidacja parkowania – tylko pojazdy (piesi są odfiltrowywani)
             if self.draw_validation:
                 if track_detections is not None:
-                    parked_cars_det_validation, validation_labels = self.park_validator.validate(track_detections, park_detection_results, True)
+                    parked_cars_det_validation, validation_labels = self.park_validator.validate(
+                        self._only_vehicles(track_detections), park_detection_results, True)
                 else:
                     parked_cars_det_validation, validation_labels = self.park_validator.validate(
-                        car_detection_results, park_detection_results, False)
-            
+                        self._only_vehicles(car_detection_results), park_detection_results, False)
+
             #  Predykcja
             if self.tracking.loaded_tracker and self.draw_predictions:
                 pred_detections, pred_labels = self.predictions.predict(track_detections, car_names)
@@ -150,7 +157,7 @@ class FrameProcessor(QObject):
 
             if self.draw_tracking:
                 frame = self.tracker_annotator.annotate(frame, track_detections, track_labels)
-                
+
             if self.draw_car_detection:
                 frame = self.yolo_det_annotator.annotate(frame, car_detection_results, car_detection_labels)
 

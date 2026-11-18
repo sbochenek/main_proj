@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
 
 from PyQt5.QtCore import pyqtSignal, QEvent, Qt, QPoint, QSize
 from .styles import (SCROLL_BAR_STYLE, SLIDER_STYLE, VIDEO_BUTTON_STYLE,
-                     VIDEO_TOOLBAR_STYLE, VIDEO_TIME_LABEL_STYLE)
+                     VIDEO_TOOLBAR_STYLE, VIDEO_TIME_LABEL_STYLE, CHECKBOX_STYLE)
 from .components import (create_widget_list, create_slider,
                         create_model_widget, create_visualization_options,
                         create_track_widget, create_prediction_widget,
@@ -29,12 +29,19 @@ class VideoWindowUI(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        (self.options_container, 
-         self.checkbox_car_detection, 
-         self.checkbox_park_detection, 
+        (self.options_container,
+         self.checkbox_car_detection,
+         self.checkbox_park_detection,
          self.checkbox_tracking,
          self.checkbox_validator,
          self.checkbox_prediction) = create_visualization_options()
+
+        # Opcjonalna detekcja pieszych – zmienia klasy zwracane przez model,
+        # a nie tylko rysowanie. Piesi nie biorą udziału w walidacji parkowania.
+        self.checkbox_pedestrians = QCheckBox("Wykrywaj pieszych", self.options_container)
+        self.checkbox_pedestrians.setStyleSheet(CHECKBOX_STYLE)
+        self.checkbox_pedestrians.setChecked(False)
+        self.options_container.layout().addWidget(self.checkbox_pedestrians)
 
         self.model_det_park_spot = create_widget_list()
         self.model_det_cars = create_widget_list()
@@ -69,7 +76,7 @@ class VideoWindowUI(QMainWindow):
         central = QWidget()
         central.setStyleSheet('background-color: #222327')
         self.setCentralWidget(central)
-        
+
         main_layout = QVBoxLayout(central)
         workspace_layout = QHBoxLayout()
         main_layout.addLayout(workspace_layout)
@@ -86,7 +93,7 @@ class VideoWindowUI(QMainWindow):
         main_models_layout = QVBoxLayout(main_models_widget)
 
         main_models_layout.addWidget(self.options_container)
-        
+
         models_content_widget = QWidget()
         models_content_layout = QVBoxLayout(models_content_widget)
         models_content_layout.setSpacing(20)
@@ -294,11 +301,11 @@ class VideoWindowUI(QMainWindow):
         bytes_per_line = ch * w
         q_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(q_image)
-        
+
         self.video_label.setPixmap(pixmap.scaled(
-            self.video_label.width(), 
-            self.video_label.height(), 
-            Qt.KeepAspectRatio, 
+            self.video_label.width(),
+            self.video_label.height(),
+            Qt.KeepAspectRatio,
             Qt.SmoothTransformation
         ))
 
@@ -314,12 +321,12 @@ class VideoWindowUI(QMainWindow):
     # zmiana rozmiarow calej aplikacje zeby zajmowala wiekszosc ekranu
     def resize_to_screen_ratio(self, width_ratio: float = 6/7, height_ratio: float = 6/7):
         screen = QApplication.primaryScreen()
-        
+
         if screen:
             screen_size = screen.geometry()
             target_width = int(screen_size.width() * width_ratio)
             target_height = int(screen_size.height() * height_ratio)
-            
+
             # Ustawiamy rozmiar okna
             self.resize(target_width, target_height)
 
@@ -334,7 +341,7 @@ class VideoWindowUI(QMainWindow):
     def show_value_tooltip(self, value):
         # Pobieramy aktualną pozycję kursora myszy na ekranie
         cursor_pos = QCursor.pos()
-        
+
         # Poprawne wywołanie dymku systemowego PyQt
         QToolTip.showText(cursor_pos, f"Próg: {value}", self)
 
@@ -352,7 +359,7 @@ class VideoLabel(QLabel):
         super().resizeEvent(event)
         width = self.width()
         height = self.height()
-        
+
         self.size_changed.emit(width, height)
         print(f"video label size w: {width}, h: {height}")
 
@@ -363,7 +370,7 @@ if __name__ == '__main__':
     app = QApplication(sys.argv) # sys.argv przekazanie argumentow z systemu (konsoli)
 
     Qsize = app.primaryScreen().availableSize()
-    
+
     view = VideoWindowUI()
     view.resize_main_window(int(Qsize.width()*6/7), int(Qsize.height()*6/7))
     view.show()

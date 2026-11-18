@@ -176,6 +176,8 @@ class Video(QThread):
     # -------------------------------------------------------------
 
     def resize_video_to_dimensions(self, width: int, height: int) -> None:
+        # Zachowane dla zgodności z AppController. Wartości nie wpływają
+        # na klatkę przekazywaną do FrameProcessor.
         self.width = width
         self.height = height
 
@@ -294,12 +296,6 @@ class Video(QThread):
                 if elapsed >= 5.0:
                     print(f"[VIDEO] zmierzony FPS: {meas_count / elapsed:.1f} (deklarowany: {self.source_fps})")
                     meas_start, meas_count = time.perf_counter(), 0
-
-                # Dopasowanie rozmiaru obrazu
-                frame = cv2.resize(
-                    frame,
-                    (self.width, self.height)
-                )
 
                 # Przygotowanie oczekiwania na zakończenie
                 # przetwarzania aktualnej klatki

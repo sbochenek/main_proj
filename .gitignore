@@ -1,6 +1,8 @@
 __pycache__
 .venv/
 .venv copy/
+evaluation
+recordings
 DETRACK_data_test
 backend/detections/rf_api_key.py
 eval_park_validator
